@@ -1,5 +1,5 @@
-import { requireAdmin } from "@/lib/auth";
 "use server";
+import { requireAdmin } from "@/lib/auth";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { runCompare, readCompare, writeCompare } from "@/lib/compare";
