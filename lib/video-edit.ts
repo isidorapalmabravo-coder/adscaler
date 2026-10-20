@@ -1,0 +1,391 @@
+import fs from "fs";
+import path from "path";
+import { spawn } from "child_process";
+import { mutate, read, getEdit, newId } from "./db";
+import { UPLOAD_DIR, filePath } from "./files";
+import type { EditJob, EditSlot, SubFont } from "./types";
+import { planSlot } from "./plan";
+
+/** Los clips y los videos del editor se borran solos a los 14 días. */
+export const RETENTION_DAYS = 14;
+
+let cachedBin: string | null = null;
+
+export function ffmpegBin(): string {
+  if (cachedBin) return cachedBin;
+  const tries: string[] = [];
+  if (process.env.FFMPEG_PATH) tries.push(process.env.FFMPEG_PATH);
+  // El programa que instala "npm install" (ruta directa, no depende del empaquetador de Next)
+  const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  tries.push(path.join(process.cwd(), "node_modules", "ffmpeg-static", exe));
+  // Si ya tienes ffmpeg instalado en tu Mac (Homebrew), también sirve
+  if (!process.env.FFMPEG_NO_SYSTEM) tries.push("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg");
+  for (const t of tries) {
+    try {
+      if (fs.existsSync(t)) {
+        try {
+          fs.chmodSync(t, 0o755);
+        } catch {}
+        cachedBin = t;
+        return t;
+      }
+    } catch {}
+  }
+  return "ffmpeg";
+}
+
+/** null si todo está bien; si no, un mensaje claro de qué hacer. */
+export async function ffmpegProblem(): Promise<string | null> {
+  const r = await run(["-hide_banner", "-version"]);
+  if (r.code === 0 && /ffmpeg version/i.test(r.err + "")) return null;
+  const out = await new Promise<string>((resolve) => {
+    const p = spawn(ffmpegBin(), ["-version"], { stdio: ["ignore", "pipe", "pipe"] });
+    let t = "";
+    p.stdout.on("data", (d) => (t += d));
+    p.on("error", () => resolve("ERR"));
+    p.on("close", () => resolve(t));
+  });
+  if (/ffmpeg version/i.test(out)) return null;
+  return "Falta instalar el programa que lee y une los videos (ffmpeg). Abre la terminal en la carpeta de la app, escribe npm install, espera a que termine y vuelve a iniciar la app (npm run dev).";
+}
+
+export function expiresAt(job: EditJob) {
+  return new Date(new Date(job.createdAt).getTime() + RETENTION_DAYS * 86400000);
+}
+
+function removeFile(name?: string) {
+  if (!name) return;
+  try {
+    fs.unlinkSync(filePath(name));
+  } catch {}
+}
+
+export function deleteEditFiles(job: EditJob) {
+  job.slots.forEach((s) => {
+    removeFile(s.clip);
+    removeFile(s.voice);
+  });
+  removeFile(job.output);
+}
+
+/** Borra los montajes con más de 14 días (clips y video final). */
+export function purgeOldEdits() {
+  const limit = Date.now() - RETENTION_DAYS * 86400000;
+  const old = read((db) => db.edits.filter((e) => new Date(e.createdAt).getTime() < limit));
+  if (!old.length) return;
+  old.forEach(deleteEditFiles);
+  mutate((db) => {
+    db.edits = db.edits.filter((e) => new Date(e.createdAt).getTime() >= limit);
+  });
+}
+
+export function run(args: string[], onStderr?: (line: string) => void): Promise<{ code: number; err: string }> {
+  return new Promise((resolve) => {
+    const p = spawn(ffmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
+    let head = "";
+    let tail = "";
+    p.stderr.on("data", (d) => {
+      const t = d.toString();
+      if (head.length < 6000) head += t.slice(0, 6000 - head.length);
+      tail = (tail + t).slice(-3000);
+      onStderr?.(t);
+    });
+    p.stdout.on("data", (d) => onStderr?.(d.toString()));
+    p.on("error", (e) => resolve({ code: 1, err: String(e) }));
+    p.on("close", (code) => resolve({ code: code ?? 1, err: head.length < 6000 ? head : head + "\n…\n" + tail }));
+  });
+}
+
+/** Duración y si trae audio, leyendo lo que imprime ffmpeg. */
+export async function probe(file: string): Promise<{ seconds: number; hasAudio: boolean; raw: string }> {
+  const { err } = await run(["-hide_banner", "-i", file]);
+  const m = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  const seconds = m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
+  return { seconds, hasAudio: /Stream #\d+:\d+.*Audio:/.test(err), raw: err };
+}
+
+// ---------- Detección de voz (recorte inteligente) ----------
+/** Dónde empieza y termina de hablarse en el clip, según el audio. null si no hay voz. */
+export async function speechWindow(file: string, seconds: number): Promise<{ start: number; end: number } | null> {
+  const { err } = await run(["-hide_banner", "-i", file, "-vn", "-af", "silencedetect=noise=-32dB:d=0.2", "-f", "null", "-"]);
+  const starts = [...err.matchAll(/silence_start:\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Math.max(0, Number(m[1])));
+  const ends = [...err.matchAll(/silence_end:\s*(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+  // intervalos de silencio; si el último no cierra, llega hasta el final
+  const gaps = starts.map((st, i) => ({ s: st, e: ends[i] ?? seconds }));
+  let start = 0;
+  let end = seconds;
+  if (gaps.length && gaps[0].s < 0.08) start = gaps[0].e;
+  const last = gaps[gaps.length - 1];
+  if (last && last.e >= seconds - 0.08 && last.s > start) end = last.s;
+  if (end - start < 0.4) return null;
+  return { start: Math.round(start * 100) / 100, end: Math.round(end * 100) / 100 };
+}
+
+/** Completa la detección de voz en los clips que aún no se analizaron (por ejemplo, subidos antes). */
+export async function ensureSpeech(job: EditJob) {
+  const todo = job.slots.filter((s) => s.clip && s.hasAudio && !s.speechChecked);
+  for (const s of todo) {
+    let w: { start: number; end: number } | null = null;
+    try {
+      w = await speechWindow(filePath(s.clip!), s.clipSeconds || 0);
+    } catch {}
+    mutate((db) => {
+      const x = db.edits.find((e) => e.id === job.id)?.slots.find((q) => q.id === s.id);
+      if (x) {
+        x.speechChecked = true;
+        x.speechStart = w?.start;
+        x.speechEnd = w?.end;
+      }
+    });
+    s.speechChecked = true;
+    s.speechStart = w?.start;
+    s.speechEnd = w?.end;
+  }
+}
+
+// ---------- Subtítulos ----------
+export interface FontCfg {
+  label: string;
+  file: string;
+  size: number;
+  upper: boolean;
+}
+/** Las tipografías viajan dentro de la app (public/fonts): se ven igual en cualquier computador. */
+export const FONTS: Record<SubFont, FontCfg> = {
+  montserrat: { label: "Montserrat", file: "montserrat.woff", size: 72, upper: false },
+  poppins: { label: "Poppins", file: "poppins.woff", size: 74, upper: false },
+  bebas: { label: "Bebas Neue", file: "bebas.woff", size: 104, upper: true },
+  anton: { label: "Anton", file: "anton.woff", size: 90, upper: true },
+  lilita: { label: "Lilita One", file: "lilita.woff", size: 82, upper: false },
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fontCache = new Map<string, any>();
+async function loadFont(id: SubFont) {
+  const cfg = FONTS[id] ?? FONTS.montserrat;
+  if (fontCache.has(cfg.file)) return fontCache.get(cfg.file);
+  const opentype = (await import("opentype.js")).default ?? (await import("opentype.js"));
+  const buf = fs.readFileSync(path.join(process.cwd(), "public", "fonts", cfg.file));
+  const font = opentype.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  fontCache.set(cfg.file, font);
+  return font;
+}
+
+/** Parte el texto de una toma en frases cortas (máx. 5 palabras y ~24 letras), como en TikTok. */
+export function chunkText(text: string): string[] {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const out: string[] = [];
+  let cur: string[] = [];
+  for (const w of words) {
+    const next = [...cur, w].join(" ");
+    if (cur.length && (cur.length >= 5 || next.length > 24)) {
+      out.push(cur.join(" "));
+      cur = [w];
+    } else cur.push(w);
+  }
+  if (cur.length) out.push(cur.join(" "));
+  return out;
+}
+
+/** Convierte los trazos de la letra a texto SVG. (toPathData de opentype.js a veces escribe "NaN" y la letra queda cortada.) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pathData(cmds: any[]): string {
+  const n = (v: number) => (Number.isFinite(v) ? (Math.round(v * 100) / 100).toString() : "0");
+  return cmds
+    .map((c) => {
+      switch (c.type) {
+        case "M":
+        case "L":
+          return `${c.type}${n(c.x)} ${n(c.y)}`;
+        case "C":
+          return `C${n(c.x1)} ${n(c.y1)} ${n(c.x2)} ${n(c.y2)} ${n(c.x)} ${n(c.y)}`;
+        case "Q":
+          return `Q${n(c.x1)} ${n(c.y1)} ${n(c.x)} ${n(c.y)}`;
+        case "Z":
+          return "Z";
+        default:
+          return "";
+      }
+    })
+    .join("");
+}
+
+/** Dibuja la frase como trazos (no depende de las fuentes del computador) y la guarda como PNG transparente. */
+export async function subtitlePng(text: string, fontId: SubFont, color: "blanco" | "amarillo" | "caja" | "cajablanca", out: string) {
+  const sharp = (await import("sharp")).default;
+  const cfg = FONTS[fontId] ?? FONTS.montserrat;
+  const font = await loadFont(fontId);
+  const t = cfg.upper ? text.toUpperCase() : text;
+  let size = cfg.size;
+  let w = font.getAdvanceWidth(t, size);
+  if (w > 940) {
+    size = (size * 940) / w;
+    w = font.getAdvanceWidth(t, size);
+  }
+  const H = 260;
+  const baseline = H / 2 + size * 0.34;
+  const d = pathData(font.getPath(t, (1080 - w) / 2, baseline, size).commands);
+  const fill = color === "amarillo" ? "#FFE14A" : "#FFFFFF";
+  if (color === "caja" || color === "cajablanca") {
+    const white = color === "cajablanca";
+    // Recuadro centrado sobre las letras: arriba y abajo el mismo aire, aunque cambie la fuente o haya tildes
+    const bb = font.getPath(t, 0, baseline, size).getBoundingBox();
+    const top = Math.min(Number.isFinite(bb.y1) ? bb.y1 : baseline - size * 0.72, baseline - size * 0.72);
+    const bottom = Math.max(Number.isFinite(bb.y2) ? bb.y2 : baseline, baseline);
+    const padX = size * 0.5, padY = size * 0.3, y0 = top - padY, boxH = bottom - top + padY * 2;
+    const box = `<rect x="${((1080 - w) / 2 - padX).toFixed(1)}" y="${y0.toFixed(1)}" width="${(w + padX * 2).toFixed(1)}" height="${boxH.toFixed(1)}" rx="${(size * 0.25).toFixed(1)}" fill="${white ? "#FFFFFF" : "#000"}" fill-opacity="${white ? "1" : "0.62"}"/>`;
+    const svgBox = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="${H}">${box}<path d="${d}" fill="${white ? "#000000" : "#FFFFFF"}"/></svg>`;
+    await sharp(Buffer.from(svgBox)).png().toFile(out);
+    return;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="${H}"><path d="${d}" fill="#000" stroke="#000" stroke-width="${(size * 0.2).toFixed(1)}" stroke-linejoin="round"/><path d="${d}" fill="${fill}"/></svg>`;
+  await sharp(Buffer.from(svg)).png().toFile(out);
+}
+
+/** Cuándo se dice cada frase dentro de la voz: se reparte según el largo de cada frase. */
+export function timeChunks(text: string, from: number, to: number): { text: string; from: number; to: number }[] {
+  const chunks = chunkText(text);
+  if (!chunks.length) return [];
+  const totalChars = chunks.reduce((a, c) => a + c.length, 0);
+  const window = Math.max(0.6, to - from);
+  let t = from;
+  return chunks.map((c) => {
+    const d = (c.length / totalChars) * window;
+    const item = { text: c, from: t, to: t + d };
+    t += d;
+    return item;
+  });
+}
+
+function patch(id: string, fn: (j: EditJob) => void) {
+  mutate((db) => {
+    const j = db.edits.find((e) => e.id === id);
+    if (j) fn(j);
+  });
+}
+
+/** Une los clips en orden (vertical 1080x1920), recortados a lo que se dice, y pone los subtítulos. */
+export async function renderEdit(id: string) {
+  const job0 = getEdit(id);
+  if (!job0) return;
+  const tmp = path.join(UPLOAD_DIR, `tmp-${newId()}`);
+  try {
+    await ensureSpeech(job0);
+    const job = getEdit(id)!;
+    const kind = job.kind ?? "ugc";
+    const smart = job.smartTrim !== false;
+    const slots = job.slots.filter((s) => s.clip);
+    if (!slots.length) throw new Error("Sube al menos un clip.");
+    fs.mkdirSync(tmp, { recursive: true });
+
+    patch(id, (j) => {
+      j.stage = "Preparando los clips";
+      j.progress = 2;
+    });
+    const voiceOn = kind === "broll" && job.voiceOn === true;
+    const plans = slots.map((s: EditSlot) => planSlot(kind, smart, s, voiceOn));
+    const total = plans.reduce((a, p) => a + p.dur, 0);
+    const args: string[] = ["-hide_banner", "-y"];
+    const filters: string[] = [];
+
+    // Clips (cada uno recortado a lo que se usa)
+    slots.forEach((s, i) => {
+      const p = plans[i];
+      args.push("-ss", p.start.toFixed(2), "-t", Math.max(0.1, p.dur - p.hold).toFixed(2), "-i", filePath(s.clip!));
+    });
+    // Voces en off generadas
+    const voiceIdx = new Map<number, number>();
+    slots.forEach((s, i) => {
+      if (plans[i].voice && s.voice) {
+        voiceIdx.set(i, args.filter((a) => a === "-i").length);
+        args.push("-i", filePath(s.voice));
+      }
+    });
+    const inputCount = args.filter((a) => a === "-i").length;
+
+    slots.forEach((s, i) => {
+      const p = plans[i];
+      const hold = p.hold > 0 ? `,tpad=stop_mode=clone:stop_duration=${p.hold.toFixed(2)}` : "";
+      filters.push(`[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30${hold},format=yuv420p[v${i}]`);
+      const fade = p.dur > 0.4 ? `,afade=t=out:st=${(p.dur - 0.05).toFixed(2)}:d=0.05` : "";
+      const vi = voiceIdx.get(i);
+      if (vi !== undefined) filters.push(`[${vi}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,apad=whole_dur=${p.dur.toFixed(3)},atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS${fade}[a${i}]`);
+      else if (s.hasAudio && !voiceOn) filters.push(`[${i}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${fade}[a${i}]`);
+      else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`);
+    });
+    filters.push(`${slots.map((_, i) => `[v${i}][a${i}]`).join("")}concat=n=${slots.length}:v=1:a=1[vc][aout]`);
+
+    let vlabel = "vc";
+    if (job.subtitles) {
+      patch(id, (j) => {
+        j.stage = "Dibujando los subtítulos";
+        j.progress = 5;
+      });
+      const subs: { png: string; from: number; to: number }[] = [];
+      let offset = 0;
+      for (let i = 0; i < slots.length; i++) {
+        const p = plans[i];
+        for (const c of timeChunks(slots[i].text, p.speechFrom, p.speechTo)) {
+          const png = path.join(tmp, `s${subs.length}.png`);
+          await subtitlePng(c.text, job.subFont ?? "montserrat", job.subStyle, png);
+          subs.push({ png, from: offset + c.from, to: offset + c.to });
+        }
+        offset += p.dur;
+      }
+      subs.forEach((s, k) => {
+        args.push("-i", s.png);
+        const inIdx = inputCount + k;
+        const next = `o${k}`;
+        filters.push(`[${vlabel}][${inIdx}:v]overlay=0:1180:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'[${next}]`);
+        vlabel = next;
+      });
+    }
+
+    patch(id, (j) => {
+      j.stage = "Armando el video y la voz";
+      j.progress = Math.max(j.progress ?? 0, 10);
+    });
+    const outName = `${newId()}.mp4`;
+    args.push(
+      "-filter_complex", filters.join(";"),
+      "-map", `[${vlabel}]`, "-map", "[aout]",
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+      "-progress", "pipe:1", "-nostats",
+      filePath(outName)
+    );
+
+    let last = 0;
+    let lastWrite = 0;
+    const { code, err } = await run(args, (t) => {
+      const m = [...t.matchAll(/out_time_(?:us|ms)=(\d+)/g)].pop();
+      if (m && total > 0) {
+        const pct = Math.min(99, 10 + Math.round((Number(m[1]) / 1e6 / total) * 89));
+        if (pct > last && Date.now() - lastWrite > 1500) {
+          last = pct;
+          lastWrite = Date.now();
+          patch(id, (j) => (j.progress = pct));
+        }
+      }
+    });
+    if (code !== 0) throw new Error("No se pudo crear el video. " + err.split("\n").filter(Boolean).slice(-4).join(" ").slice(0, 400));
+
+    const old = getEdit(id)?.output;
+    patch(id, (j) => {
+      j.status = "done";
+      j.stage = undefined;
+      j.progress = 100;
+      j.output = outName;
+      j.outputSeconds = Math.round(total * 10) / 10;
+      j.error = undefined;
+    });
+    removeFile(old);
+  } catch (e) {
+    patch(id, (j) => {
+      j.status = "error";
+      j.error = e instanceof Error ? e.message : String(e);
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}

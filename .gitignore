@@ -1,0 +1,11 @@
+node_modules
+.next
+data
+.env
+.env.local
+.env.*
+!.env.example
+claves.env
+*.pem
+.DS_Store
+tsconfig.tsbuildinfo
