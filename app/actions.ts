@@ -231,7 +231,13 @@ export async function generatePersonas(videoId: string, form: FormData) {
     // Fondo neutro y liso: así el fondo del personaje no se "filtra" a las demás tomas
     const vid = getVideo(videoId);
     const bg = vid && isAnimated(vid.type, vid.mode) ? NEUTRAL_BACKGROUND_ANIMATED : NEUTRAL_BACKGROUND;
-    const withBg = /plain (light-)?(grey|gray|white) (wall|flat background)|plain light-grey/i.test(prompt) ? prompt : prompt + bg;
+    // Realista: se quita el fondo liso de estudio de versiones anteriores y se pone un rincón de casa natural
+    let base = prompt;
+    if (vid && !isAnimated(vid.type, vid.mode)) {
+      base = base.replace(/[^.]*\b(plain|blank|solid|neutral|studio)\b[^.]*\b(wall|background|backdrop)\b[^.]*\.?/gi, "").trim();
+      if (!/no beauty filter/i.test(base)) base += " Natural skin texture, visible pores, uneven skin tone, flyaway hairs, small asymmetries, no retouching, no beauty filter, phone-camera grain.";
+    }
+    const withBg = base + bg;
     const imgs = await pool([1, 2], 2, () => generateImage(withBg, [], { userId: me.id }));
     updateVideo(videoId, (v) => {
       v.personaImages = [...imgs, ...v.personaImages];

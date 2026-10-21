@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject, mutate } from "@/lib/db";
 import { requireUser, ownVideo } from "@/lib/auth";
+import { silenceBroll } from "@/lib/broll";
 import { fileUrl } from "@/lib/files";
 import {
   approveFirstShot,
@@ -44,6 +45,18 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
       if (v) v.status = "done";
     });
     video.status = "done";
+  }
+  // B-roll: los prompts de animación ya guardados se corrigen solos (nadie habla ni mira a cámara)
+  if (video.type !== "ugc" && shots.some((s) => s.animationPrompt && !/nobody looks at the camera/i.test(s.animationPrompt))) {
+    mutate((db) => {
+      const v = db.videos.find((x) => x.id === id);
+      v?.analysis?.shots.forEach((s) => {
+        if (s.animationPrompt) s.animationPrompt = silenceBroll(s.animationPrompt);
+      });
+    });
+    shots.forEach((s) => {
+      if (s.animationPrompt) s.animationPrompt = silenceBroll(s.animationPrompt);
+    });
   }
   // Si el servidor se reinició a mitad del análisis, tras 6 min se considera interrumpido
   const analyzing = !!video.analyzingSince && Date.now() - Date.parse(video.analyzingSince) < 6 * 60 * 1000;
