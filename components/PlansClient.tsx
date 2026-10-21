@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PLANES, PACKS, CODES, PROMO_PERCENT, IMAGENES_POR_VIDEO, findCode, codeExpired, priceWithCode, promoPrice, clp } from "@/lib/plans";
+import { PLANES, PACKS, PRUEBA, CODES, PROMO_PERCENT, IMAGENES_POR_VIDEO, findCode, codeExpired, priceWithCode, promoPrice, clp } from "@/lib/plans";
 
 export function PlansClient() {
   const [input, setInput] = useState("");
@@ -41,6 +41,22 @@ export function PlansClient() {
         {code && <span className="small" style={{ color: "#1F5E3E" }}>Código {code.code} aplicado: {code.nota}. Solo vale para suscripciones mensuales, no para packs de videos.</span>}
       </div>
       )}
+
+      <section className="plan main" style={{ gap: 10 }}>
+        <div className="stack" style={{ gap: 6 }}>
+          <h2>
+            Pruébalo con 1 video
+            <span className="pill solid">Para empezar</span>
+          </h2>
+          <span className="muted small">Crea un video completo con tu producto y comprueba que funciona antes de suscribirte.</span>
+        </div>
+        <div className="row" style={{ alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span className="price">{clp(PRUEBA.precio)}</span>
+          <span className="muted small">pago único · IVA incluido</span>
+        </div>
+        <span className="small muted">Incluye persona, tomas, prompts para Flow, voz en off y subtítulos: unas {IMAGENES_POR_VIDEO} imágenes.</span>
+        <a href="#" className="btn">Probar por {clp(PRUEBA.precio)}</a>
+      </section>
 
       <div className="stack" style={{ gap: 6 }}>
         <h2>Suscripción mensual</h2>
