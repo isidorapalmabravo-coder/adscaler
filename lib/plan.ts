@@ -61,8 +61,10 @@ export function planSlot(kind: EditKind, smart: boolean, s: EditSlot, voiceOn = 
   }
 
   // Voz en off generada: el largo sale de la voz real, no de una estimación
-  if (kind === "broll" && voiceOn && voiceReady(s) && !(s.manualSeconds && s.manualSeconds > 0)) {
-    const want = r2(s.voiceSeconds! + 0.35);
+  // Si fijaste el largo a mano, la toma dura eso (sin cortar la voz) y la voz suena igual.
+  if (kind === "broll" && voiceOn && voiceReady(s)) {
+    const manual = s.manualSeconds && s.manualSeconds > 0 ? s.manualSeconds : 0;
+    const want = r2(manual ? Math.max(manual, s.voiceSeconds! + 0.15) : s.voiceSeconds! + 0.35);
     const used = Math.min(clip, want);
     return { start: 0, dur: want, speechFrom: 0.05, speechTo: Math.min(want, s.voiceSeconds! + 0.05), mode: "voz", cut: Math.max(0, r2(clip - used)), hold: Math.max(0, r2(want - clip)), voice: true };
   }
