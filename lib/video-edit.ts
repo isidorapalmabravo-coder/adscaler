@@ -4,7 +4,7 @@ import { spawn } from "child_process";
 import { mutate, read, getEdit, newId } from "./db";
 import { UPLOAD_DIR, filePath } from "./files";
 import type { EditJob, EditSlot, SubFont } from "./types";
-import { planSlot } from "./plan";
+import { planSlot, voiceReady } from "./plan";
 
 /** Los clips y los videos del editor se borran solos a los 14 días. */
 export const RETENTION_DAYS = 14;
@@ -264,6 +264,56 @@ function patch(id: string, fn: (j: EditJob) => void) {
   });
 }
 
+/**
+ * Antes de unir el video se revisa que cada toma tenga la voz de SU texto actual.
+ * Si cambiaste un texto (por ejemplo, pasaste una frase de la toma 8 a la 7), la voz vieja ya no sirve:
+ * se vuelve a crear aquí mismo, sin depender de que el navegador lo haya pedido antes.
+ */
+async function ensureVoices(id: string) {
+  const job = getEdit(id);
+  if (!job || job.kind !== "broll" || job.voiceOn !== true) return;
+  const { synthesize, clampSpeed } = await import("./voice");
+  const voiceName = job.voiceName ?? "Kore";
+  const speed = clampSpeed(job.voiceSpeed);
+  const stale = (s: EditSlot) => !!s.clip && !!s.text.trim() && (!voiceReady(s) || s.voiceName !== voiceName);
+  let lastErr = "";
+  for (let round = 0; round < 3; round++) {
+    const todo = (getEdit(id)?.slots ?? []).filter(stale);
+    if (!todo.length) return;
+    patch(id, (j) => {
+      j.stage = `Creando las voces (${todo.length})`;
+      j.progress = 3;
+    });
+    let next = 0;
+    const worker = async () => {
+      while (next < todo.length) {
+        const s = todo[next++];
+        const text = s.text.trim();
+        try {
+          const r = await synthesize(text, voiceName, speed);
+          let old: string | undefined;
+          mutate((db) => {
+            const x = db.edits.find((e) => e.id === id)?.slots.find((q) => q.id === s.id);
+            if (!x) return;
+            old = x.voice;
+            x.voice = r.file;
+            x.voiceSeconds = r.seconds;
+            x.voiceText = text;
+            x.voiceName = voiceName;
+            x.voiceSpeed = speed;
+          });
+          removeFile(old);
+        } catch (e) {
+          lastErr = e instanceof Error ? e.message : String(e);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+  }
+  const left = (getEdit(id)?.slots ?? []).map((s, i) => (stale(s) ? i + 1 : 0)).filter(Boolean);
+  if (left.length) throw new Error(`No se pudo crear la voz de la toma ${left.join(", ")}. ${lastErr}`.slice(0, 400));
+}
+
 /** Une los clips en orden (vertical 1080x1920), recortados a lo que se dice, y pone los subtítulos. */
 export async function renderEdit(id: string) {
   const job0 = getEdit(id);
@@ -271,6 +321,7 @@ export async function renderEdit(id: string) {
   const tmp = path.join(UPLOAD_DIR, `tmp-${newId()}`);
   try {
     await ensureSpeech(job0);
+    await ensureVoices(id);
     const job = getEdit(id)!;
     const kind = job.kind ?? "ugc";
     const smart = job.smartTrim !== false;

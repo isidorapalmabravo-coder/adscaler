@@ -6,7 +6,19 @@ import { probe, run } from "./video-edit";
 import { VOICES, DEFAULT_VOICE } from "./voice-list";
 
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-lite-tts";
-const STYLE = process.env.GEMINI_TTS_STYLE || "Natural Chilean Spanish (español de Chile), conversational, FAST-paced and energetic, speaking quickly with no long pauses, like a quick voice note to a friend, not an announcer";
+// Dirección de actuación: que suene como una persona real y no como un lector robótico.
+const BASE_STYLE =
+  process.env.GEMINI_TTS_STYLE ||
+  "Natural Chilean Spanish (español de Chile). Speak like a real person recording a voice note for one friend: relaxed, warm and spontaneous, with natural rhythm, light breaths and a lot of intonation. Rise and fall on the key words, stress the benefits and the numbers, let a small smile show in the voice. Never sound like an announcer, a news reader or a robot: no flat monotone, no stiff or over-pronounced words, no mechanical pauses. Lively, fairly quick pace without long silences.";
+const VOICE_STYLE: Record<string, string> = {
+  Kore: "Voice character: a woman, firm and clear. Confident, crisp diction, steady and convincing.",
+  Leda: "Voice character: a woman, close and friendly, like a good friend sharing a tip. Warm, intimate, easy.",
+  Gacrux: "Voice character: a woman, elegant and refined. Poised, smooth and polished, a premium tone that flows without rushing.",
+  Puck: "Voice character: a man, animated and upbeat. Enthusiastic, expressive, lots of energy and color.",
+  Orus: "Voice character: a man, secure and assertive. Steady, confident, trustworthy, approachable authority.",
+  Charon: "Voice character: a man, calm and reassuring. Low, smooth and relaxed, never hurried.",
+};
+const styleFor = (voice: string) => `${BASE_STYLE} ${VOICE_STYLE[voice] ?? ""}`.trim();
 
 export function hasTTS() {
   return !!process.env.GEMINI_API_KEY;
@@ -35,7 +47,7 @@ async function callTTS(text: string, voice: string): Promise<Buffer> {
     headers: { "x-goog-api-key": process.env.GEMINI_API_KEY!, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: TTS_MODEL,
-      input: [{ type: "user_input", content: [{ type: "text", text, annotations: [{ type: "speech_metadata", style: STYLE }] }] }],
+      input: [{ type: "user_input", content: [{ type: "text", text, annotations: [{ type: "speech_metadata", style: styleFor(voice) }] }] }],
       response_format: { type: "audio" },
       generation_config: { speech_config: [{ voice }] },
     }),

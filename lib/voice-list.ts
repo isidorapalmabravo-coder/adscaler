@@ -1,8 +1,8 @@
 /** Voces de Gemini TTS. Todas hablan español; el acento chileno se pide en la instrucción. */
 export const VOICES = [
   { id: "Kore", label: "Mujer · firme y clara", gender: "f" },
-  { id: "Leda", label: "Mujer · joven y cercana", gender: "f" },
-  { id: "Zephyr", label: "Mujer · luminosa", gender: "f" },
+  { id: "Leda", label: "Mujer · cercana", gender: "f" },
+  { id: "Gacrux", label: "Mujer · elegante", gender: "f" },
   { id: "Puck", label: "Hombre · animado", gender: "m" },
   { id: "Orus", label: "Hombre · seguro", gender: "m" },
   { id: "Charon", label: "Hombre · calmado", gender: "m" },
