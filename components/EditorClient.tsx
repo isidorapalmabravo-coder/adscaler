@@ -221,6 +221,29 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
     setJob((j) => ({ ...j, status: j.status === "done" ? "draft" : j.status }));
   }
 
+  // Cambia el clip de UNA toma por otro (el anterior se borra en el servidor)
+  async function replaceClip(slotId: string, file: File) {
+    if (!/\.(mp4|mov|m4v|webm)$/i.test(file.name)) {
+      setMsg("Sube un video MP4 o MOV.");
+      return;
+    }
+    setMsg("");
+    setProg((p) => ({ ...p, [slotId]: 1 }));
+    try {
+      await save();
+      mergeClip(await uploadClip(initial.id, slotId, file, (pct) => setProg((p) => ({ ...p, [slotId]: pct }))));
+      setJob((j) => ({ ...j, status: j.status === "done" ? "draft" : j.status }));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Falló la subida.");
+    } finally {
+      setProg((p) => {
+        const c = { ...p };
+        delete c[slotId];
+        return c;
+      });
+    }
+  }
+
   async function removeClip(slotId: string) {
     const r = await fetch(`/api/editor/${initial.id}/clip?slot=${slotId}`, { method: "DELETE" });
     if (r.ok) mergeClip((await r.json()) as EditJob);
@@ -352,7 +375,13 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                       <div className="stack" style={{ gap: 6 }}>
                         <div className="row between small" style={{ gap: 6 }}>
                           <span><strong>Se usa {sec(p.dur)}</strong> <span className="muted">de {sec(s.clipSeconds || 0)}</span></span>
-                          <button type="button" className="btn ghost" style={{ minHeight: 28, padding: "2px 6px" }} onClick={() => removeClip(s.id)}>Quitar clip</button>
+                          <span className="row" style={{ gap: 4 }}>
+                            <label className="btn ghost" style={{ minHeight: 28, padding: "2px 6px", cursor: "pointer" }}>
+                              Cambiar clip
+                              <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) replaceClip(s.id, f); }} />
+                            </label>
+                            <button type="button" className="btn ghost" style={{ minHeight: 28, padding: "2px 6px" }} onClick={() => removeClip(s.id)}>Quitar clip</button>
+                          </span>
                         </div>
                         <div className="row small muted" style={{ gap: 6 }}>
                           {why && <span>{p.cut > 0.05 ? `Se corta ${sec(p.cut)} ${why}` : `Dura todo el clip (${why})`}</span>}
