@@ -387,6 +387,9 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                           {why && <span>{p.cut > 0.05 ? `Se corta ${sec(p.cut)} ${why}` : `Dura todo el clip (${why})`}</span>}
                           {!why && <span>{s.hasAudio ? "Se usa completo" : "Sin audio · se usa completo"}</span>}
                         </div>
+                        {p.mode === "voz" ? (
+                          <span className="small muted">El largo sale de la voz: la toma se corta cuando termina de hablar.</span>
+                        ) : (
                         <label className="row small" style={{ gap: 6 }}>
                           <span className="muted">Largo:</span>
                           <input
@@ -402,6 +405,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                           <span className="muted">s</span>
                           {s.manualSeconds !== undefined && <button type="button" className="btn ghost" style={{ minHeight: 24, padding: "0 6px" }} onClick={() => setManual(i, undefined)}>Auto</button>}
                         </label>
+                        )}
                       </div>
                     );
                   })()}

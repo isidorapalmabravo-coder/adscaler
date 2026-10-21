@@ -12,3 +12,12 @@ export function silenceBroll(animation: string) {
   if (!/nobody looks at the camera/i.test(a)) a = `${a} ${NO_SPEAK}`;
   return a;
 }
+
+/** B-roll: en el prompt de la imagen, nadie mira a la cámara ni habla. */
+export function noCameraImage(prompt: string) {
+  return prompt
+    .replace(/\b(looking|looks|gazing|gazes|staring|stares|smiling|smiles)\s+(directly\s+)?(at|into|to|toward|towards)\s+(the\s+)?(camera|lens|viewer)\b/gi, "looking down at what they are doing")
+    .replace(/\b(talking|speaking)\s+(to|at|into)\s+(the\s+)?(camera|lens)\b/gi, "quietly focused on what they are doing")
+    .replace(/\bfront-camera selfie( with arm extended)?,?/gi, "photo taken by a friend,")
+    .replace(/\s{2,}/g, " ");
+}

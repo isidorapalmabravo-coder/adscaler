@@ -1,4 +1,4 @@
-import { silenceBroll } from "./broll";
+import { silenceBroll, noCameraImage } from "./broll";
 import { fixDuration } from "./duration";
 import { withAnatomy, withAnatomyMotion, withVertical } from "./anatomy";
 import fs from "fs";
@@ -302,7 +302,7 @@ export async function analyzeBrief(opts: {
         duration: dur.duration,
         kind: fixed.kind,
         audio,
-        imagePrompt: withAnatomy(s.imagePrompt ?? ""),
+        imagePrompt: (opts.type === "ugc" ? withAnatomy(s.imagePrompt ?? "") : noCameraImage(withAnatomy(s.imagePrompt ?? ""))),
         animationPrompt: withAnatomyMotion(dur.animation),
         edit: s.edit ?? u.scenes[i]?.edit ?? "",
         // Quién y qué se ve en la toma: manda lo que dice el VISUAL del brief (entendimiento), no lo que improvise la IA

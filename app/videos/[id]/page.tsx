@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject, mutate } from "@/lib/db";
 import { requireUser, ownVideo } from "@/lib/auth";
-import { silenceBroll } from "@/lib/broll";
+import { silenceBroll, noCameraImage } from "@/lib/broll";
 import { fileUrl } from "@/lib/files";
 import {
   approveFirstShot,
@@ -52,10 +52,12 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
       const v = db.videos.find((x) => x.id === id);
       v?.analysis?.shots.forEach((s) => {
         if (s.animationPrompt) s.animationPrompt = silenceBroll(s.animationPrompt);
+        if (s.imagePrompt) s.imagePrompt = noCameraImage(s.imagePrompt);
       });
     });
     shots.forEach((s) => {
       if (s.animationPrompt) s.animationPrompt = silenceBroll(s.animationPrompt);
+      if (s.imagePrompt) s.imagePrompt = noCameraImage(s.imagePrompt);
     });
   }
   // Si el servidor se reinició a mitad del análisis, tras 6 min se considera interrumpido
