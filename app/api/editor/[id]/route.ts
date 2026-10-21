@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   { const denied = await guardEdit(id); if (denied) return denied; }
-  const body = (await req.json()) as { title?: string; slots?: { id: string; text: string; manualSeconds?: number | null }[]; subtitles?: boolean; subStyle?: string; subFont?: string; kind?: string; smartTrim?: boolean; voiceOn?: boolean; voiceName?: string };
+  const body = (await req.json()) as { title?: string; slots?: { id: string; text: string; manualSeconds?: number | null }[]; subtitles?: boolean; subStyle?: string; subFont?: string; kind?: string; smartTrim?: boolean; voiceOn?: boolean; voiceName?: string; voiceSpeed?: number };
   const removed: string[] = [];
   const job = mutate((db) => {
     const j = db.edits.find((e) => e.id === id);
@@ -29,6 +29,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.kind === "ugc" || body.kind === "broll") j.kind = body.kind;
     if (typeof body.voiceOn === "boolean") j.voiceOn = body.voiceOn;
     if (typeof body.voiceName === "string" && /^[A-Za-z]{2,20}$/.test(body.voiceName)) j.voiceName = body.voiceName;
+    if (typeof body.voiceSpeed === "number" && body.voiceSpeed >= 0.5 && body.voiceSpeed <= 2) j.voiceSpeed = body.voiceSpeed;
     if (typeof body.smartTrim === "boolean") j.smartTrim = body.smartTrim;
     if (body.subFont && ["montserrat", "poppins", "bebas", "anton", "lilita"].includes(body.subFont)) j.subFont = body.subFont as typeof j.subFont;
     if (body.subStyle === "blanco" || body.subStyle === "amarillo" || body.subStyle === "caja" || body.subStyle === "cajablanca") j.subStyle = body.subStyle;

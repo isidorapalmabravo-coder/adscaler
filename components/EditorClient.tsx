@@ -95,17 +95,17 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
   const [over, setOver] = useState(false);
   const dirty = useRef(false);
   const saving = useRef<Promise<void>>(Promise.resolve());
-  const latest = useRef({ slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName });
-  latest.current = { slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName };
+  const latest = useRef({ slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed });
+  latest.current = { slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed };
 
   const save = useCallback(() => {
     saving.current = saving.current.then(async () => {
-      const { slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName } = latest.current;
+      const { slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed } = latest.current;
       dirty.current = false;
       await fetch(`/api/editor/${initial.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, slots: slots.map((s) => ({ id: s.id, text: s.text, manualSeconds: s.manualSeconds ?? null })) }),
+        body: JSON.stringify({ title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed, slots: slots.map((s) => ({ id: s.id, text: s.text, manualSeconds: s.manualSeconds ?? null })) }),
       }).catch(() => {});
     });
     return saving.current;
@@ -116,7 +116,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
     if (!dirty.current) return;
     const t = setTimeout(save, 600);
     return () => clearTimeout(t);
-  }, [slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, save]);
+  }, [slots, title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed, save]);
 
   const change = <T,>(set: (v: T) => void) => (v: T) => {
     dirty.current = true;

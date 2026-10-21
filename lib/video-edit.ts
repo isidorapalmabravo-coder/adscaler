@@ -275,7 +275,7 @@ async function ensureVoices(id: string) {
   const { synthesize, clampSpeed } = await import("./voice");
   const voiceName = job.voiceName ?? "Kore";
   const speed = clampSpeed(job.voiceSpeed);
-  const stale = (s: EditSlot) => !!s.clip && !!s.text.trim() && (!voiceReady(s) || s.voiceName !== voiceName);
+  const stale = (s: EditSlot) => !!s.clip && !!s.text.trim() && (!voiceReady(s) || s.voiceName !== voiceName || Math.abs((s.voiceSpeed ?? 1) - speed) > 0.01);
   let lastErr = "";
   for (let round = 0; round < 3; round++) {
     const todo = (getEdit(id)?.slots ?? []).filter(stale);
