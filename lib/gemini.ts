@@ -253,7 +253,17 @@ const norm = (x: string) => x.replace(/[\s"“”«»'.,;:¡!¿?]+/g, " ").trim(
 
 // Si la IA se olvidó de poner el audio dentro del prompt de animación, se agrega aquí.
 function ensureSpeech(type: VideoType, kind: string, audio: string, animation: string) {
-  if (type !== "ugc") return { kind, animation };
+  if (type !== "ugc") {
+    // B-roll: nadie habla ni mira a cámara, pase lo que pase con el texto de la IA
+    let a = animation
+      .replace(/[^.!?]*\b(speaks?|speaking|talks?|talking|says|saying|greets?|looks? (directly )?(at|into|to) (the )?(camera|lens)|looking (directly )?(at|into|to) (the )?(camera|lens)|to camera|smiles? at (the )?camera)\b[^.!?]*[.!?]?/gi, (m) => (/nobody|no one|does not|do not|don't|never|not speak|not look/i.test(m) ? m : ""))
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (!/nobody looks at the camera/i.test(a)) {
+      a = `${a} Nobody speaks, lips stay closed and still, nobody looks at the camera, eyes stay on the activity.`;
+    }
+    return { kind, animation: a };
+  }
   const line = audio.trim().replace(/^["“]|["”]$/g, "");
   let anim = animation;
   if (line && !norm(anim).includes(norm(line))) {

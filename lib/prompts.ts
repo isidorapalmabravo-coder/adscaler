@@ -158,15 +158,16 @@ ${ANIMACION_UGC}
 
 PROMPT DEL PERSONAJE (personaPrompt)
 Escribe EN INGLÉS el prompt de la "imagen ancla" del personaje principal: foto vertical 9:16 tipo selfie de celular, de frente, del pecho hacia arriba, mirando a cámara con una sonrisa leve.
-Incluye: edad exacta, origen (latina/chilena, según el brief), pelo, ojos, rasgos, ropa lisa de un solo color (la que pide la continuidad) y "natural skin texture, visible pores, no retouching".
-FONDO OBLIGATORIO: una pared clara y lisa, sin cuadros, plantas, estantes ni objetos. Nada en las manos. Luz suave de ventana.
+Incluye: edad exacta, origen (latina/chilena, según el brief), pelo (con mechones sueltos y frizz, no peinado de salón), ojos, rasgos con pequeñas asimetrías, ropa lisa de un solo color (la que pide la continuidad) con arrugas reales, y piel real: "natural skin texture, visible pores, uneven skin tone, faint under-eye shadows, small blemishes, no retouching, no beauty filter, no makeup-perfect look".
+FONDO NATURAL: un rincón real y sencillo de una casa latinoamericana, desenfocado suave (pared con algo de sombra, un borde de puerta o ventana, un mueble); NO una pared de estudio ni fondo liso perfecto. Pocos objetos, nada llamativo ni con texto, nada en las manos. Luz natural de ventana, un lado de la cara un poco más oscuro. Aspecto de foto tomada con un celular, con un poco de grano; sin look de estudio, de modelo ni de IA.
 Esta imagen se usa como referencia en todas las tomas, así que describe a la persona con detalle y sin ambigüedad.
 `;
 
 const BROLL_BASE = `
 TOMAS B-ROLL (con VOZ EN OFF)
+- REGLA ABSOLUTA: en B-roll NADIE habla NUNCA y NADIE mira a la cámara NUNCA. Ninguna persona o personaje habla, murmura, canta, ni mueve los labios; la boca queda cerrada o relajada, y la mirada va SIEMPRE a lo que está haciendo (producto, manos, objeto, ventana, suelo, otra persona), nunca a la lente. No escribas "looking at the camera", "smiling at the camera", "talking", "speaking", "says", "greets", "selfie" ni "to camera" en ningún prompt de B-roll. Cuando la toma sea de frente, la mirada cae un poco al costado o hacia abajo, a la acción. El video lo cuenta el narrador en off.
 - Hay un NARRADOR en voz en off. Nadie habla a cámara ni mueve los labios. kind = el tipo de plano (animación 3D, CGI, pizarra, cómic, producto, gráfico, B-roll real). El audio de cada toma es lo que dice el narrador, tal cual el brief.
-- animationPrompt SIN diálogo ni frase hablada. Estructura: (1) cámara ("static", "slow push-in", "slow pan", "handheld phone"), (2) lo que se mueve en la escena, en orden temporal, (3) ánimo o expresión si hay personajes, (4) "characters do not speak, mouths closed" SOLO si hay personas o personajes en esa toma (si no los hay, no lo escribas), (5) rasgos rígidos del producto o del personaje, (6) cierre: "single continuous take, no cuts, no zoom changes, no text, no subtitles, no music". Solo movimiento: no cambies de escena ni de plano dentro de la toma. Dura exactamente 4, 6, 8 o 10 segundos.
+- animationPrompt SIN diálogo ni frase hablada. Estructura: (1) cámara ("static", "slow push-in", "slow pan", "handheld phone"), (2) lo que se mueve en la escena, en orden temporal, (3) ánimo o expresión si hay personajes, (4) SI HAY personas o personajes en esa toma, SIEMPRE escribe: "nobody speaks, lips stay closed and still, nobody looks at the camera, eyes stay on the activity" (si no los hay, no lo escribas), (5) rasgos rígidos del producto o del personaje, (6) cierre: "single continuous take, no cuts, no zoom changes, no text, no subtitles, no music". Solo movimiento: no cambies de escena ni de plano dentro de la toma. Dura exactamente 4, 6, 8 o 10 segundos.
 - Titulares, subtítulos y gráficos NO van dentro de la imagen (no pidas texto legible): se agregan al editar.
 - CADA TOMA CUENTA UNA COSA: el imagePrompt muestra exactamente lo que dice el audio de esa toma, con un sujeto claro y un solo foco. Nada de escenas genéricas de stock: usa detalles concretos del avatar, del problema y del lugar.
 - RETENCIÓN: nunca dos tomas seguidas con el mismo tipo de plano, el mismo movimiento de cámara y el mismo sujeto. Alterna lo cercano y lo abierto, el interior y el exterior. Las tomas 1 y 2 son el gancho: lo más fuerte del video.
@@ -236,13 +237,13 @@ export function brollInstruction(mode: BrollMode | undefined, animStyle?: string
   - ESTRUCTURA DEL imagePrompt (120 a 180 palabras, en este orden; siempre género y edad explícitos de cada personaje): (1) frase de estilo, (2) plano y ángulo ("close-up", "wide shot", "low angle", "over-the-shoulder"), (3) sujeto y su acción con una emoción clara, (4) lugar con 2 o 3 objetos que cuenten la escena, (5) luz y paleta de colores, (6) si se ve el producto: 2 rasgos rígidos del producto, (7) "no text, no logos".
   - ANIMACIÓN DE ESTE ESTILO (úsalo en cada animationPrompt, empezando con "${guide.lead.replace(/ still,$/, " video,")} N seconds."): ${guide.motion}`;
   const styleLock = `ESTILO CONSTANTE: todas las tomas del video usan el MISMO estilo y la misma frase inicial, para que se vean del mismo universo. Las tomas CGI o microscópicas siguen el mismo estilo (no cambian a fotorrealismo).`;
-  const characterPrompt = `PROMPT DEL PERSONAJE (personaPrompt): EN INGLÉS, la imagen ancla del personaje principal, vertical 9:16, de la cintura para arriba, mirando al frente, expresión neutra, sobre fondo liso y neutro (sin objetos, nada en las manos). Incluye edad, rasgos, pelo, ropa o diseño exacto, que se repetirá siempre igual. Esta imagen se usa como referencia en todas las tomas.`;
+  const characterPrompt = `PROMPT DEL PERSONAJE (personaPrompt): EN INGLÉS, la imagen ancla del personaje principal, vertical 9:16, de la cintura para arriba, mirando al frente, expresión neutra y relajada, sobre fondo liso y neutro si es animado (sin objetos, nada en las manos). Si es realista: foto de celular de una persona común, con la mirada un poco al costado (NO a la lente), el fondo de un rincón real y sencillo de casa, desenfocado suave y con luz natural de ventana, y piel real ("natural skin texture, visible pores, uneven skin tone, flyaway hairs, small asymmetries, wrinkled clothes, no retouching, no beauty filter, phone-camera grain"; nada de estudio ni de modelo). Incluye edad, rasgos, pelo, ropa o diseño exacto, que se repetirá siempre igual. Esta imagen se usa como referencia en todas las tomas.`;
   switch (mode) {
     case "persona":
       return `${BROLL_BASE}
 CLASE: B-ROLL CON UNA PERSONA FIJA (realista)
 - Una sola persona protagoniza el video entero: es la historia que cuenta el narrador. Su imagen aprobada llega como referencia: NO describas su cara, pelo ni ropa en los imagePrompt; escribe "the person" y lo que hace.
-- Cada toma cambia el lugar, el plano y la acción, siempre con la misma persona y la misma ropa. Normalmente no mira a cámara.
+- Cada toma cambia el lugar, el plano y la acción, siempre con la misma persona y la misma ropa. NUNCA mira a cámara y NUNCA habla: su mirada va a lo que hace.
 - Estilo de imagen: "Vertical 9:16 candid photo shot on a phone, photorealistic," (selfie solo si la toma lo pide; si no, "photo taken by a friend"). Lugares reales y algo desordenados de casas latinoamericanas, luz real, piel real ("natural skin texture, visible pores, no retouching, no filters"), encuadre un poco imperfecto y algo de grano de celular. Persona común, no modelo, haciendo algo (no posando).
 - ${characterPrompt}`;
     case "animado_personaje":
@@ -264,7 +265,7 @@ CLASE: ANIMADO CON CORTES VARIADOS (sin personaje fijo)
       return `${BROLL_BASE}
 CLASE: B-ROLL CON CORTES VARIADOS (realista, sin personaje fijo)
 - No hay persona ni personaje fijo. Cada toma es una escena completamente distinta e independiente: otro lugar, otra persona (o sin personas), otro plano, otra luz. Cada imagePrompt describe TODO lo que se ve (edad, rasgos y ropa de cada persona, lugar, luz, encuadre, acción) y no depende de ninguna otra toma. No repitas la misma persona ni el mismo lugar en dos tomas seguidas.
-- Estilo de imagen: "Vertical 9:16 candid photo shot on a phone, photorealistic," con lugares reales y algo desordenados de casas latinoamericanas, luz real (ventana, lámpara de la pieza, nublado), piel real ("natural skin texture, visible pores, no retouching"), personas comunes que normalmente no miran a cámara, encuadre un poco imperfecto, un poco de grano de celular. Nada de iluminación de estudio ni poses de modelo.
+- Estilo de imagen: "Vertical 9:16 candid photo shot on a phone, photorealistic," con lugares reales y algo desordenados de casas latinoamericanas, luz real (ventana, lámpara de la pieza, nublado), piel real ("natural skin texture, visible pores, no retouching"), personas comunes que NUNCA miran a cámara ni hablan (la mirada va a lo que hacen), encuadre un poco imperfecto, un poco de grano de celular. Nada de iluminación de estudio ni poses de modelo.
 - Deja personaVacío: personaPrompt = "".`.replace('personaVacío: personaPrompt = ""','personaPrompt = ""');
   }
 }
@@ -312,7 +313,7 @@ export function productReminder(products: number) {
 
 // Se agrega al generar al personaje, para que su fondo no se "filtre" a las demás tomas
 export const NEUTRAL_BACKGROUND =
-  " Plain light-grey wall behind them, no pictures, no plants, no shelves, no objects in the frame, nothing in their hands, soft window light.";
+  " Natural, simple corner of a real Latin American home softly out of focus behind them (slightly shadowed wall, a door frame or window edge), very few objects, no text, nothing in their hands, soft natural window light with one side of the face a bit darker, unretouched phone-photo look with slight grain.";
 export const NEUTRAL_BACKGROUND_ANIMATED =
   " Simple plain light-grey flat background, no objects, no scenery, nothing in the hands, soft even lighting, same art style.";
 
@@ -351,7 +352,7 @@ Responde solo con el JSON pedido.
 export function animationInstruction(type: VideoType, mode?: BrollMode, animStyle?: string) {
   return type === "ugc"
     ? `Eres director/a creativo/a de anuncios UGC. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma.\n\n${ANIMACION_UGC}\n\nHazlo humano y desprolijo: respiración, mirada que se escapa y vuelve, pausas cortas, gesto imperfecto, celular que tiembla un poco; que suene a nota de voz a una amiga, no a locutora. Devuelve únicamente el prompt final, sin comillas alrededor, sin explicaciones y sin JSON. Si el usuario pide un cambio, aplícalo sin perder la frase hablada.`
-    : `Eres director/a creativo/a de anuncios de video. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma B-roll, EN INGLÉS, de exactamente 4, 6, 8 o 10 segundos (nunca 5, 7 ni 9): cámara, lo que se mueve en orden temporal, ritmo, y cierre "single continuous take, no cuts, no text, no subtitles, no music". Solo movimiento, sin cambiar de escena.${
+    : `Eres director/a creativo/a de anuncios de video. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma B-roll, EN INGLÉS, de exactamente 4, 6, 8 o 10 segundos (nunca 5, 7 ni 9): cámara, lo que se mueve en orden temporal, ritmo, y cierre "single continuous take, no cuts, no text, no subtitles, no music". Solo movimiento, sin cambiar de escena. REGLA ABSOLUTA: nadie habla ni mueve los labios y nadie mira a la cámara; si hay personas o personajes escribe "nobody speaks, lips stay closed and still, nobody looks at the camera, eyes stay on the activity" y borra cualquier frase de diálogo o "talking/speaking/looking at camera".${
         isAnimated(type, mode)
           ? ` Estilo animado: empieza con "${styleGuide(animStyle).guide.lead.replace(/ still,$/, " video,")} N seconds." y anima así: ${styleGuide(animStyle).guide.motion}`
           : " Realista, como celular: cámara en mano con leve temblor."
