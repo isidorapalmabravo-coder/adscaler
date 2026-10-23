@@ -6,8 +6,9 @@ import { SubmitButton } from "@/components/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewVideo({ params }: { params: Promise<{ id: string }> }) {
+export default async function NewVideo({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const { id } = await params;
+  const { error } = await searchParams;
   const me = await requireUser();
   let project;
   try {
@@ -32,6 +33,7 @@ export default async function NewVideo({ params }: { params: Promise<{ id: strin
         <form action={createVideo.bind(null, id)} className="cols">
           <div className="main stack-lg">
             <h1>Nuevo video</h1>
+            {error && <div className="error" role="alert">{error}</div>}
 
             <label className="field">Nombre del video
               <input type="text" name="title" placeholder="Ej.: “Probé todas las cremas caras”" required />
@@ -111,14 +113,7 @@ export default async function NewVideo({ params }: { params: Promise<{ id: strin
               </label>
             </div>
 
-            <div className="drop">
-              <label className="field">4. Videos de referencia (opcional)
-                <input type="file" name="refVideos" accept="video/mp4,video/quicktime,video/webm" multiple />
-              </label>
-              <span className="muted small">La IA los mira para copiar el ritmo, los planos y cómo se muestra el producto.</span>
-            </div>
-
-            <label className="field">5. ¿Algo más que deba saber la IA?
+            <label className="field">4. ¿Algo más que deba saber la IA?
               <textarea name="notes" rows={3} placeholder="Ej.: que grabe en el baño de su casa, luz de mañana" />
             </label>
 
@@ -132,7 +127,7 @@ export default async function NewVideo({ params }: { params: Promise<{ id: strin
           <aside className="aside stack">
             <div className="card-dark stack">
               <h2 style={{ fontFamily: "var(--display)", fontSize: 20 }}>Lo que va a pasar</h2>
-              <p className="muted small">La IA lee tu brief, mira las referencias y escribe tres cosas:</p>
+              <p className="muted small">La IA lee tu brief y escribe tres cosas:</p>
               <p><strong>Prompt del personaje</strong><br /><span className="muted small">la persona que aparece en todo el video</span></p>
               <p><strong>Prompt de imagen por toma</strong><br /><span className="muted small">cada escena, hiperrealista, con tu producto real</span></p>
               <p><strong>Prompt de animación por toma</strong><br /><span className="muted small">listo para pegar en Flow</span></p>

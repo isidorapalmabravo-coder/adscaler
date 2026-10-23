@@ -62,6 +62,7 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
   }
   // Si el servidor se reinició a mitad del análisis, tras 6 min se considera interrumpido
   const analyzing = !!video.analyzingSince && Date.now() - Date.parse(video.analyzingSince) < 6 * 60 * 1000;
+  const interrupted = !!video.analyzingSince && !analyzing;
 
   return (
     <div>
@@ -98,7 +99,7 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             }
           />
         )}
-        {video.status === "draft" && !analyzing && <DraftStep video={video} />}
+        {video.status === "draft" && !analyzing && <DraftStep video={video} interrupted={interrupted} />}
         {video.status === "analyzed" && a && <PersonaStep video={video} />}
         {video.status === "persona_approved" && a && <FirstShotStep video={video} />}
         {video.status === "done" && a && <DeliveryStep video={video} project={project} />}
@@ -139,11 +140,11 @@ function Understood({ u }: { u: Understanding }) {
   );
 }
 
-function DraftStep({ video }: { video: Video }) {
+function DraftStep({ video, interrupted }: { video: Video; interrupted?: boolean }) {
   return (
     <div className="empty">
       <h2>El brief todavía no está analizado</h2>
-      <p>{video.error ? "El análisis anterior no terminó. Inténtalo otra vez." : "Puede haber fallado la conexión con la IA. Inténtalo otra vez."}</p>
+      <p>{interrupted ? "El análisis se interrumpió (puede haberse reiniciado el servidor). Vuelve a intentarlo: no gasta imágenes." : video.error ? "El análisis anterior no terminó. Inténtalo otra vez." : "Puede haber fallado la conexión con la IA. Inténtalo otra vez."}</p>
       <form action={reanalyze.bind(null, video.id)}>
         <SubmitButton pending="Iniciando…">Analizar brief</SubmitButton>
       </form>

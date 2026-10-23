@@ -107,7 +107,7 @@ function ConfirmSubmit() {
 /** Barra de progreso con tiempo. Va DENTRO de un <form>: aparece al enviarlo y se bloquea el botón para no enviar dos veces.
  *  Es una estimación por tiempo (la IA no informa su avance): sube rápido al inicio y se frena cerca del 95 %. */
 export function TimedProgress({
-  expectedSeconds = 90,
+  expectedSeconds = 150,
   stages = ["Trabajando"],
   hint = "No cierres esta página ni vuelvas a apretar el botón.",
 }: {
@@ -187,7 +187,7 @@ export function TimedProgress({
 export function AnalysisProgress() {
   return (
     <TimedProgress
-      expectedSeconds={90}
+      expectedSeconds={150}
       stages={["Leyendo el brief y las fotos del producto", "Escribiendo los prompts de cada toma", "Últimos ajustes"]}
     />
   );
@@ -236,7 +236,7 @@ export function AnalyzingPanel({
         <div className="progress-fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="row between small muted">
-        <span>Llevas {mmss} · normalmente tarda 1 a 2 min</span>
+        <span>Llevas {mmss} · normalmente tarda 2 a 4 min</span>
         <span>Esta página se actualiza sola</span>
       </div>
       {slow && (

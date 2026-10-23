@@ -150,8 +150,18 @@ export async function createVideo(projectId: string, form: FormData) {
   ownProject(await requireUser(), projectId);
   const briefFile = filesFrom(form, "brief")[0];
   const pasted = str(form, "briefText");
-  const briefText = briefFile ? await briefToText(briefFile) : pasted;
-  const refVideos = await Promise.all(filesFrom(form, "refVideos").map(saveUpload));
+  let briefText = pasted;
+  let failed = "";
+  if (briefFile) {
+    try {
+      briefText = await briefToText(briefFile);
+    } catch (e) {
+      failed = `No se pudo leer el archivo del brief (${errMsg(e)}). Prueba subirlo como .txt o .md, o pégalo en el cuadro.`;
+    }
+  }
+  if (!failed && !briefText.trim()) failed = "Falta el brief: sube un archivo o pégalo en el cuadro.";
+  if (failed) redirect(`/proyectos/${projectId}/videos/nuevo?error=${encodeURIComponent(failed)}`);
+  const refVideos: string[] = [];
   const id = newId();
   const type = str(form, "type") === "broll" ? "broll" : "ugc";
   const modeRaw = str(form, "mode");
