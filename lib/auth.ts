@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { DATA_DIR, mutate, newId, read, imagesThisMonth } from "./db";
 import type { User } from "./types";
+import { monthlyLimit } from "./plans";
 
 export const COOKIE = "adscaler_session";
 const DAYS = 30;
@@ -154,14 +155,16 @@ export function ownEdit(u: User, id: string) {
 /* ---------- cupo de imágenes ---------- */
 export function quota(u: User) {
   const used = imagesThisMonth(u.id, u.role === "admin");
-  return { used, limit: u.imageLimit, left: Math.max(0, u.imageLimit - used) };
+  const monthly = monthlyLimit(u);
+  const left = Math.max(0, monthly - used) + (u.role === "admin" ? 0 : u.credits ?? 0);
+  return { used, limit: used + left, left };
 }
 export function assertQuota(userId: string | undefined, units: number) {
   if (!userId) return;
   const u = read((db) => db.users.find((x) => x.id === userId));
   if (!u) throw new Error("Cuenta no encontrada.");
   const q = quota(u);
-  if (q.left < units) throw new Error(`Se acabaron tus imágenes de este mes (${q.used} de ${q.limit}). Mejora tu plan en "Plan y créditos".`);
+  if (q.left < units) throw new Error(`Se acabaron tus imágenes (${q.used} usadas). Elige un plan o un pack en "Plan y créditos".`);
 }
 
 /** Para las rutas /api: devuelve una respuesta de error si no hay sesión o el montaje no es de esta cuenta. */

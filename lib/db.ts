@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { DB } from "./types";
+import { monthlyLimit } from "./plans";
 
 // Base de datos simple en un archivo JSON (data/db.json).
 // Suficiente para la primera versión; después se cambia por Supabase/Postgres.
@@ -10,7 +11,7 @@ export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data")
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
 function empty(): DB {
-  return { users: [], projects: [], videos: [], imageLog: [], edits: [] };
+  return { users: [], projects: [], videos: [], imageLog: [], edits: [], pagos: [] };
 }
 
 function load(): DB {
@@ -86,6 +87,15 @@ export function imagesThisMonth(userId?: string, admin = false) {
 export function logImage(units = 1, userId?: string) {
   mutate((db) => {
     const at = new Date().toISOString();
+    const u = userId ? db.users.find((x) => x.id === userId) : undefined;
+    const prefix = at.slice(0, 7);
+    const before = userId ? db.imageLog.filter((l) => l.at.startsWith(prefix) && l.userId === userId).length : 0;
     for (let i = 0; i < units; i++) db.imageLog.push({ at, userId });
+    // Lo que pasa del cupo mensual se descuenta de las imágenes sueltas (packs y prueba)
+    if (u && u.role !== "admin" && (u.credits ?? 0) > 0) {
+      const lim = monthlyLimit(u);
+      const over = Math.max(0, before + units - lim) - Math.max(0, before - lim);
+      if (over > 0) u.credits = Math.max(0, (u.credits ?? 0) - over);
+    }
   });
 }

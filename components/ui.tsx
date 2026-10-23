@@ -12,7 +12,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   if (!me) redirect("/login");
   const { used, limit } = quota(me);
   const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
-  const renews = `${nextMonth.getDate()} ${nextMonth.toLocaleDateString("es-CL", { month: "short" }).replace(".", "")}`;
+  const fmt = (d: Date) => `${d.getDate()} ${d.toLocaleDateString("es-CL", { month: "short" }).replace(".", "")}`;
+  const renews = fmt(me.planUntil && me.role !== "admin" ? new Date(me.planUntil) : nextMonth);
+  const planActive = !me.planUntil || new Date(me.planUntil) > new Date();
   const demo = !hasGemini() || !hasOpenAI();
   return (
     <div className="shell">
@@ -28,7 +30,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             {used} <span style={{ fontSize: 14, fontWeight: 500, color: "#AEB9CF" }}>de {limit}</span>
           </strong>
           <div className="bar"><span style={{ width: `${Math.min(100, (used / limit) * 100)}%` }} /></div>
-          <span>Plan {me.plan} · se renueva el {renews}</span>
+          <span>{planActive ? `Plan ${me.plan} · ${me.planUntil && me.role !== "admin" ? "vence" : "se renueva"} el ${renews}` : "Tu plan venció · elige uno en Plan y créditos"}</span>
           {demo && (
             <span>
               Modo demo: {!hasGemini() && "falta GEMINI_API_KEY"}

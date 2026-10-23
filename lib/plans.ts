@@ -27,7 +27,7 @@ export const PACKS: Pack[] = [
   { id: "pack10", videos: 10, precio: 29990 },
 ];
 
-export const IMAGENES_POR_VIDEO = 22;
+export const IMAGENES_POR_VIDEO = 25;
 
 /** Video de prueba: se ofrece a todos los que crean su cuenta, para que prueben la app por poco. Pago único. */
 export const PRUEBA: Pack = { id: "prueba", videos: 1, precio: 1000 };
@@ -73,3 +73,12 @@ export function priceWithCode(plan: Plan, code: DiscountCode | null): number {
 }
 
 export const clp = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
+
+/** Imágenes gratis por mes de una cuenta sin plan pagado. */
+export const FREE_IMAGES = () => Number(process.env.FREE_IMAGE_LIMIT ?? 22);
+
+/** Imágenes que da su plan este mes: si el plan pagado venció, vuelve al cupo gratis. */
+export function monthlyLimit(u: { role: string; imageLimit: number; planUntil?: string }) {
+  if (u.role === "admin" || !u.planUntil) return u.imageLimit;
+  return new Date(u.planUntil) > new Date() ? u.imageLimit : FREE_IMAGES();
+}

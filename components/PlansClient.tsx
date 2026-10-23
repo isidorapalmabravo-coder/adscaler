@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { startCheckout } from "@/app/planes/actions";
 import { PLANES, PACKS, PRUEBA, CODES, PROMO_PERCENT, IMAGENES_POR_VIDEO, findCode, codeExpired, priceWithCode, promoPrice, clp } from "@/lib/plans";
 
 export function PlansClient() {
@@ -8,6 +9,20 @@ export function PlansClient() {
   const [applied, setApplied] = useState<string>("");
   const [error, setError] = useState("");
   const code = applied ? findCode(applied) : null;
+  const [busy, setBusy] = useState("");
+  const [payError, setPayError] = useState("");
+
+  async function pay(kind: "plan" | "pack" | "prueba", id: string) {
+    setPayError("");
+    setBusy(`${kind}-${id}`);
+    const r = await startCheckout(kind, id, kind === "plan" ? applied : undefined);
+    if (r.url) {
+      window.location.href = r.url;
+      return;
+    }
+    setBusy("");
+    setPayError(r.error || "No se pudo abrir el pago.");
+  }
 
   function apply() {
     const c = findCode(input);
@@ -55,7 +70,8 @@ export function PlansClient() {
           <span className="muted small">pago único · IVA incluido</span>
         </div>
         <span className="small muted">Incluye persona, tomas, prompts para Flow, voz en off y subtítulos: unas {IMAGENES_POR_VIDEO} imágenes.</span>
-        <a href="#" className="btn">Probar por {clp(PRUEBA.precio)}</a>
+        <button type="button" className="btn" onClick={() => pay("prueba", PRUEBA.id)} disabled={!!busy}>{busy === `prueba-${PRUEBA.id}` ? "Abriendo el pago…" : `Probar por ${clp(PRUEBA.precio)}`}</button>
+        {payError && <span className="error" role="alert">{payError}</span>}
       </section>
 
       <div className="stack" style={{ gap: 6 }}>
@@ -92,7 +108,7 @@ export function PlansClient() {
                 <li>Prompts de animación listos para Flow</li>
                 <li>Editor de video con voz en off y subtítulos</li>
               </ul>
-              <a href="#" className={`btn${p.destacado ? "" : " outline"}`}>Elegir {p.nombre}</a>
+              <button type="button" className={`btn${p.destacado ? "" : " outline"}`} onClick={() => pay("plan", p.id)} disabled={!!busy}>{busy === `plan-${p.id}` ? "Abriendo el pago…" : `Elegir ${p.nombre}`}</button>
             </section>
           );
         })}
@@ -114,7 +130,7 @@ export function PlansClient() {
               <strong>{clp(k.precio / k.videos)} por video</strong>
               <span className="muted small">unas {(k.videos * IMAGENES_POR_VIDEO).toLocaleString("es-CL")} imágenes en total</span>
             </div>
-            <a href="#" className="btn outline">Comprar {k.videos} videos</a>
+            <button type="button" className="btn outline" onClick={() => pay("pack", k.id)} disabled={!!busy}>{busy === `pack-${k.id}` ? "Abriendo el pago…" : `Comprar ${k.videos} videos`}</button>
           </section>
         ))}
       </div>

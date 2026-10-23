@@ -1,4 +1,6 @@
 import { read, imagesThisMonth } from "@/lib/db";
+import { pagosRecientes } from "@/lib/pagos";
+import { clp } from "@/lib/plans";
 import { requireAdmin } from "@/lib/auth";
 import { AppShell } from "@/components/ui";
 import { SubmitButton } from "@/components/client";
@@ -9,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function Admin() {
   const me = await requireAdmin();
   const users = read((db) => db.users);
+  const pagos = pagosRecientes();
   return (
     <AppShell>
       <div className="stack" style={{ gap: 6 }}>
@@ -42,6 +45,21 @@ export default async function Admin() {
             <SubmitButton className="btn outline" pending="Guardando…">Guardar</SubmitButton>
           </form>
         ))}
+      </div>
+      <div className="stack" style={{ marginTop: 28 }}>
+        <h2>Pagos recientes</h2>
+        {pagos.length === 0 ? (
+          <span className="muted small">Todavía no hay pagos.</span>
+        ) : (
+          <div className="card stack" style={{ gap: 8 }}>
+            {pagos.map((p) => (
+              <div key={p.id} className="row between small" style={{ gap: 12, flexWrap: "wrap" }}>
+                <span>{new Date(p.at).toLocaleString("es-CL")} · {users.find((u) => u.id === p.userId)?.email ?? p.userId}</span>
+                <span><strong>{clp(p.amount)}</strong> · {p.kind === "plan" ? `Plan ${p.item}` : p.kind === "pack" ? `Pack ${p.item}` : "Video de prueba"}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </AppShell>
   );

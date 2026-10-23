@@ -154,6 +154,9 @@ export interface User {
   role: "admin" | "user";
   plan: string; // nombre del plan (se cambia a mano hasta tener pagos)
   imageLimit: number; // imágenes al mes
+  planUntil?: string; // hasta cuándo vale el plan pagado (AAAA-MM-DD...). Si pasó, vuelve al cupo gratis
+  credits?: number; // imágenes sueltas compradas en packs o en el video de prueba (no vencen)
+  trialUsed?: boolean; // ya compró su video de prueba
   disabled?: boolean;
   createdAt: string;
 }
@@ -164,4 +167,15 @@ export interface DB {
   videos: Video[];
   imageLog: { at: string; userId?: string }[];
   edits: EditJob[];
+  pagos?: Pago[];
+}
+
+/** Un pago aprobado en Mercado Pago. */
+export interface Pago {
+  id: string; // id del pago en Mercado Pago
+  userId: string;
+  kind: "plan" | "pack" | "prueba";
+  item: string;
+  amount: number;
+  at: string;
 }

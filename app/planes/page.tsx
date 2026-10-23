@@ -1,7 +1,8 @@
 import { AppShell } from "@/components/ui";
 import { PlansClient } from "@/components/PlansClient";
 
-export default function PlanesPage() {
+export default async function PlanesPage({ searchParams }: { searchParams: Promise<{ pago?: string }> }) {
+  const { pago } = await searchParams;
   return (
     <AppShell>
       <div className="wrap stack-lg">
@@ -10,6 +11,10 @@ export default function PlanesPage() {
           <h1>Planes y precios</h1>
           <p className="muted">Elige una suscripción mensual o compra solo los videos que necesitas.</p>
         </div>
+
+        {pago === "ok" && <div className="card" style={{ borderColor: "#1F5E3E", color: "#1F5E3E" }}><strong>¡Pago recibido!</strong> En unos segundos tu plan o tus imágenes quedan activos. Si no los ves, recarga la página.</div>}
+        {pago === "pendiente" && <div className="card"><strong>Tu pago está pendiente.</strong> Cuando Mercado Pago lo apruebe, se activa solo.</div>}
+        {pago === "error" && <div className="error" role="alert">El pago no se pudo completar. No se cobró nada; puedes intentarlo de nuevo.</div>}
 
         <PlansClient />
 
