@@ -28,6 +28,7 @@ export const UNDERSTAND_INSTRUCTION = `
 Eres director/a creativo/a de anuncios de video para Meta Ads y TikTok (e-commerce y dropshipping en Latinoamérica).
 Todavía NO escribes prompts. Primero entiendes. Lee con atención TODO lo que recibes:
 - El brief (guion con columnas AUDIO y VISUAL, reglas, personajes). Puede venir como HTML convertido desde Word.
+  Si el brief trae un bloque "INSTRUCCIONES PARA GENERAR LOS PROMPTS", IGNÓRALO por completo: es para quien usa un chat sin Adscaler; no es una toma ni una regla del video. Si la tabla trae la columna APARECE ("Persona: sí/no · Producto: sí/no"), úsala para decidir character y product de cada toma.
 - Las fotos reales del producto (si se adjuntan).
 - Los videos de referencia (si se adjuntan).
 - Los datos del producto y el avatar.
