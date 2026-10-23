@@ -280,11 +280,9 @@ const MAX_PRODUCT_REFS = Number(process.env.MAX_PRODUCT_REFS || 1);
 // o si el prompt menciona el producto (para que nunca se pierda por un error de marcado).
 function wantsProduct(shot: Shot, name: string) {
   if (shot.showsProduct === true || /producto|product/i.test(shot.kind ?? "")) return true;
-  if (shot.showsProduct === false) {
-    const t = (shot.imagePrompt ?? "").toLowerCase();
-    const n = name.trim().toLowerCase();
-    return (n.length > 2 && t.includes(n)) || /\b(shampoo bar|the bar|product|bottle|jar|package|packaging|box of)\b/.test(t);
-  }
+  // Si la toma está marcada SIN producto (por ejemplo el gancho del problema), nunca se adjunta su foto.
+  // Antes se revisaba el texto del prompt, pero frases como "No product, no logos" lo reactivaban por error.
+  if (shot.showsProduct === false) return false;
   return true;
 }
 

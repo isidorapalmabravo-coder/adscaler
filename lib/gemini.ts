@@ -294,7 +294,8 @@ export async function analyzeBrief(opts: {
 
   const shots: Shot[] = (w.shots ?? []).map((s: Record<string, unknown> & { audio?: string; kind?: string; animationPrompt?: string; duration?: string; time?: string; imagePrompt?: string; edit?: string }, i) => {
       const audio = s.audio ?? u.scenes[i]?.audio ?? "";
-      const fixed = ensureSpeech(opts.type, s.kind ?? u.scenes[i]?.kind ?? "", audio, s.animationPrompt ?? "");
+      const rawKind = s.kind ?? u.scenes[i]?.kind ?? "";
+      const fixed = ensureSpeech(opts.type, opts.type === "broll" && /ugc/i.test(rawKind) ? "B-roll" : rawKind, audio, s.animationPrompt ?? "");
       const dur = fixDuration(opts.type, audio, s.duration ?? u.scenes[i]?.duration ?? "", fixed.animation);
       return {
         n: i + 1,
