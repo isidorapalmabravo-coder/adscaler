@@ -15,7 +15,12 @@ export function PlansClient() {
   async function pay(kind: "plan" | "pack" | "prueba", id: string) {
     setPayError("");
     setBusy(`${kind}-${id}`);
-    const r = await startCheckout(kind, id, kind === "plan" ? applied : undefined);
+    let r: { url?: string; error?: string };
+    try {
+      r = await startCheckout(kind, id, kind === "plan" ? applied : undefined);
+    } catch {
+      r = { error: "No se pudo abrir el pago. Intenta de nuevo en un momento." };
+    }
     if (r.url) {
       window.location.href = r.url;
       return;
@@ -42,6 +47,13 @@ export function PlansClient() {
   }
 
   return (
+    <>
+      {payError && (
+        <div role="alert" style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:100,maxWidth:420,width:"calc(100% - 32px)",background:"#3a1218",color:"#fff",border:"1px solid #ff6b81",borderRadius:12,padding:"12px 16px",boxShadow:"0 8px 30px rgba(0,0,0,.4)",fontSize:14}}>
+          {payError}
+          <button type="button" onClick={() => setPayError("")} style={{marginLeft:10,background:"none",border:0,color:"#fff",cursor:"pointer"}} aria-label="Cerrar">✕</button>
+        </div>
+      )}
     <div className="stack-lg">
       {(
       <div className="card stack" style={{ gap: 10 }}>
@@ -71,7 +83,7 @@ export function PlansClient() {
         </div>
         <span className="small muted">Incluye persona, tomas, prompts para Flow, voz en off y subtítulos: unas {IMAGENES_POR_VIDEO} imágenes.</span>
         <button type="button" className="btn" onClick={() => pay("prueba", PRUEBA.id)} disabled={!!busy}>{busy === `prueba-${PRUEBA.id}` ? "Abriendo el pago…" : `Probar por ${clp(PRUEBA.precio)}`}</button>
-        {payError && <span className="error" role="alert">{payError}</span>}
+
       </section>
 
       <div className="stack" style={{ gap: 6 }}>
@@ -135,5 +147,6 @@ export function PlansClient() {
         ))}
       </div>
     </div>
+    </>
   );
 }

@@ -31,7 +31,7 @@ export function resolveItem(user: User, kind: Kind, id: string, codeText?: strin
 
 export async function createCheckout(user: User, kind: Kind, id: string, codeText: string | undefined, base: string) {
   const token = process.env.MP_ACCESS_TOKEN;
-  if (!token) throw new Error("Los pagos se activan muy pronto. Escríbenos y te ayudamos a activar tu plan.");
+  if (!token) throw new Error("Los pagos aún no están activados. Estamos terminando de conectar Mercado Pago, vuelve en un rato.");
   const item = resolveItem(user, kind, id, codeText);
   const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
