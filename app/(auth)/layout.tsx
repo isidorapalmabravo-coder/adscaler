@@ -3,7 +3,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="auth">
       <aside className="auth-brand">
-        <img src="/logo/adscaler-oscuro.svg" alt="Adscaler" height={34} style={{ height: 34, width: "auto", position: "relative", zIndex: 1 }} />
+        <img src="/logo/adscaler-oscuro.svg" alt="Adscaler" height={34} style={{ height: 34, width: "auto", alignSelf: "flex-start", position: "relative", zIndex: 1 }} />
         <div style={{ position: "relative", zIndex: 1 }}>
           <h2>De tu producto a un video que vende, en minutos.</h2>
           <p>Escribe tu brief y Adscaler crea la persona, las imágenes de cada toma y los prompts listos para animar en Flow. Después le pones voz y subtítulos.</p>
