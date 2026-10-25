@@ -19,6 +19,34 @@ import { filePath, mimeOf } from "./files";
 // Flash-Lite por defecto: en la prueba real salió ~19 veces más barato que Pro con las mismas tomas. Para "mayor calidad": GEMINI_MODEL=gemini-3.1-pro-preview
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
+/** Google a veces responde 503 ("modelo con alta demanda") o 429. Reintenta con pausa y, si sigue saturado, prueba el otro modelo. */
+const FALLBACK: Record<string, string> = {
+  "gemini-3.1-flash-lite": "gemini-3.1-pro-preview",
+  "gemini-3.1-pro-preview": "gemini-3.1-flash-lite",
+};
+function isBusy(e: unknown) {
+  const m = String((e as { message?: string })?.message ?? e);
+  return /"code":\s*(503|429|500)|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(m);
+}
+type GenParams = Parameters<GoogleGenAI["models"]["generateContent"]>[0];
+async function generate(ai: GoogleGenAI, params: GenParams) {
+  const waits = [3000, 8000, 15000];
+  const models = [params.model, FALLBACK[params.model as string]].filter(Boolean) as string[];
+  let lastErr: unknown;
+  for (const model of models) {
+    for (let i = 0; i <= waits.length; i++) {
+      try {
+        return await ai.models.generateContent({ ...params, model });
+      } catch (e) {
+        lastErr = e;
+        if (!isBusy(e)) throw e;
+        if (i < waits.length) await new Promise((r) => setTimeout(r, waits[i]));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 /** Cuántos tokens gastó cada llamada (para saber el costo real y comparar modelos). */
 export type UsageFn = (step: string, model: string, tokensIn: number, tokensOut: number) => void;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -174,7 +202,7 @@ ${opts.briefText}`;
   // las devuelve), el paso 2 las crea a partir del guion.
   let data = {} as UnderstandOut;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await ai.models.generateContent({
+    const res = await generate(ai, {
       model,
       contents: [{ role: "user", parts: [...imgParts, ...videoParts, { text }] }],
       config: {
@@ -231,7 +259,7 @@ ${briefText.slice(0, 120000)}`
 
   let last: { personaPrompt?: string; shots?: Record<string, string>[] } = {};
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await ai.models.generateContent({
+    const res = await generate(ai, {
       model,
       contents: text + (attempt ? "\n\nIMPORTANTE: devuelve exactamente una toma por cada escena indicada." : ""),
       config: {
@@ -338,7 +366,7 @@ export async function analyzeBrief(opts: {
 
 export async function suggestAvatars(project: Project): Promise<Omit<Avatar, "id">[]> {
   if (!hasGemini()) return mockAvatars(project);
-  const res = await client().models.generateContent({
+  const res = await generate(client(), {
     model: MODEL,
     contents: projectContext(project, null),
     config: {
@@ -391,7 +419,7 @@ TOMA
 - Prompt de animación actual: ${shot.animationPrompt}
 
 CAMBIO PEDIDO POR EL USUARIO: ${opts.change || "(ninguno: mejóralo y hazlo más natural y específico, sin cambiar lo que dice)"}`;
-    const res = await client().models.generateContent({
+    const res = await generate(client(), {
       model: MODEL,
       contents: text,
       config: { systemInstruction: animationInstruction(type, opts.mode, opts.animStyle), maxOutputTokens: 4096 },
