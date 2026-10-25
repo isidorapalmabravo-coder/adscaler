@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { read } from "@/lib/db";
 import { requireUser, ownProject } from "@/lib/auth";
 import { fileUrl } from "@/lib/files";
-import { addAvatar, deleteAvatar, generateAvatars, removePhoto, updateProject, deleteVideoQuiet, renameVideo } from "@/app/actions";
+import { addAvatar, deleteAvatar, generateAvatars, removePhoto, updateProject, deleteVideoQuiet, deleteProject, renameVideo } from "@/app/actions";
 import { AppShell, StatusPill } from "@/components/ui";
 import { ConfirmDeleteForm, EditableTitle, SubmitButton } from "@/components/client";
 
@@ -120,6 +120,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         )}
       </section>
+
+      <div style={{ marginTop: 40 }}>
+        <ConfirmDeleteForm
+          action={deleteProject.bind(null, id)}
+          label="Eliminar este producto"
+          message={`¿Seguro que quieres eliminar "${project.name}"? Se borran también sus ${videos.length} video(s), imágenes y prompts, y no se puede deshacer.`}
+        />
+      </div>
     </AppShell>
   );
 }

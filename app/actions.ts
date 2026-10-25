@@ -237,6 +237,18 @@ export async function deleteVideo(videoId: string) {
   redirect(video ? `/proyectos/${video.projectId}` : "/");
 }
 
+// Borra un producto entero con todos sus videos
+export async function deleteProject(projectId: string) {
+  ownProject(await requireUser(), projectId);
+  mutate((db) => {
+    db.projects = db.projects.filter((p) => p.id !== projectId);
+    db.videos = db.videos.filter((v) => v.projectId !== projectId);
+  });
+  revalidatePath("/");
+  revalidatePath("/videos");
+  redirect("/");
+}
+
 /* ---------------- Paso 2: personaje ---------------- */
 
 export async function generatePersonas(videoId: string, form: FormData) {
