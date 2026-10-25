@@ -28,3 +28,16 @@ export function withAnatomyMotion(prompt: string) {
   if (!p) return p;
   return withVertical(/two hands/i.test(p) ? p : p + ANATOMY_MOTION);
 }
+
+// Cola de realismo para toda imagen fotográfica (no para animación, cómic, plastilina, CGI, etc.).
+export const REALISM_TAIL =
+  " Candid unposed snapshot look: caught mid-action, slightly imperfect off-center framing, uneven natural light, visible skin pores and fine lines, natural facial asymmetry, flyaway hairs, wrinkled everyday clothes, lived-in cluttered background, mild phone-camera grain; an ordinary person, not a model, no retouching, no beauty filter, no glossy or plastic AI skin.";
+
+const NOT_PHOTO = /claymation|clay|stop-motion|felt|3d animated|animated feature|illustration|comic|cartoon|line art|hatching|3d cgi|cgi render|skeleton|whiteboard|infographic|chart|diagram/i;
+
+export function withRealism(prompt: string) {
+  const p = (prompt || "").trim();
+  if (!p) return p;
+  if (NOT_PHOTO.test(p) || !/photo|photorealistic|selfie|candid/i.test(p)) return p;
+  return /unposed snapshot look/i.test(p) ? p : p + REALISM_TAIL;
+}

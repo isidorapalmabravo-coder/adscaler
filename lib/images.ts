@@ -5,7 +5,7 @@ import { filePath, mimeOf, saveBuffer } from "./files";
 import { logImage } from "./db";
 import { assertQuota } from "./auth";
 import { mockImageSvg } from "./mock";
-import { withAnatomy } from "./anatomy";
+import { withAnatomy, withRealism } from "./anatomy";
 
 /**
  * MOTOR DE IMÁGENES: GPT Image en calidad BAJA por defecto.
@@ -65,7 +65,7 @@ export async function generateImage(
   opts: { quality?: Quality; userId?: string } = {}
 ): Promise<string> {
   const quality = opts.quality ?? DEFAULT_QUALITY;
-  prompt = withAnatomy(prompt);
+  prompt = withRealism(withAnatomy(prompt));
   assertQuota(opts.userId, CREDITS[quality]);
   logImage(CREDITS[quality], opts.userId);
   if (!hasOpenAI()) {
