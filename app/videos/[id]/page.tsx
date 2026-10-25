@@ -89,6 +89,9 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
 
         {video.error && <div className="error" role="alert">{video.error}</div>}
 
+        {video.status === "draft" && analyzing && video.refVideos.length > 0 && (
+          <p className="muted small">La IA está mirando tu video de referencia para que cada toma se parezca al original. Esto puede tardar uno o dos minutos más. No cierres ni recargues la página.</p>
+        )}
         {video.status === "draft" && analyzing && (
           <AnalyzingPanel
             startedAt={video.analyzingSince!}
