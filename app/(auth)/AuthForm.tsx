@@ -54,6 +54,11 @@ export function AuthForm({
       <button type="submit" className="btn auth-submit" disabled={pending}>
         {pending ? "Un momento…" : mode === "login" ? "Entrar" : "Crear mi cuenta"}
       </button>
+      {mode === "registro" && (
+        <p className="muted small" style={{ textAlign: "center", margin: 0 }}>
+          Al crear tu cuenta aceptas los <a href="/terminos" target="_blank" rel="noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>.
+        </p>
+      )}
     </form>
   );
 }

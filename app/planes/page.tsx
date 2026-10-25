@@ -37,7 +37,7 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
             <span>Analizar el brief y regenerar prompts de animación no gasta imágenes.</span>
           </div>
         </div>
-        <p className="muted small">Los precios y las cantidades se confirman antes del lanzamiento.</p>
+        <p className="muted small">Los precios y las cantidades se confirman antes del lanzamiento. Al pagar aceptas los <a href="/terminos">Términos y condiciones</a> y la <a href="/privacidad">Política de privacidad</a>.</p>
       </div>
     </AppShell>
   );

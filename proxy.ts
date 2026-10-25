@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE, readToken } from "@/lib/auth";
 
 // Puerta de entrada: sin sesión válida solo se puede ver /login y /registro.
-const PUBLIC = ["/login", "/registro"];
+const PUBLIC = ["/login", "/registro", "/terminos", "/privacidad"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
