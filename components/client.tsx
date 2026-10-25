@@ -313,3 +313,67 @@ export function EditableTitle({
     </span>
   );
 }
+
+/** Elige el brief: un solo archivo (o texto pegado), con botón para quitarlo y cambiarlo. */
+export function BriefPicker() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [text, setText] = useState("");
+  const [warn, setWarn] = useState("");
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+      setFileName("");
+      return;
+    }
+    // Solo un brief: si por algún motivo llegan varios, se queda el primero.
+    setWarn(files.length > 1 ? "Solo puedes subir un brief a la vez. Me quedé con el primero." : "");
+    setFileName(files[0].name);
+    setText("");
+  }
+
+  function removeFile() {
+    if (inputRef.current) inputRef.current.value = "";
+    setFileName("");
+    setWarn("");
+  }
+
+  return (
+    <div className="drop">
+      <label className="field">
+        3. Sube el brief (.docx, .txt o .md). Solo un archivo.
+        <input
+          ref={inputRef}
+          type="file"
+          name="brief"
+          accept=".docx,.txt,.md"
+          onChange={onPick}
+          style={fileName ? { display: "none" } : undefined}
+        />
+      </label>
+
+      {fileName && (
+        <div className="row" style={{ alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600 }}>📄 {fileName}</span>
+          <button type="button" className="btn outline small" onClick={removeFile}>
+            Quitar y elegir otro
+          </button>
+        </div>
+      )}
+      {warn && <p className="muted small">{warn}</p>}
+
+      <label className="field">
+        …o pégalo aquí{fileName ? " (desactivado: ya subiste un archivo; quítalo para pegar texto)" : ""}
+        <textarea
+          name="briefText"
+          rows={5}
+          placeholder="Pega el guion con su audio y visual"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={!!fileName}
+        />
+      </label>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser, ownProject } from "@/lib/auth";
 import { createVideo } from "@/app/actions";
-import { SubmitButton } from "@/components/client";
+import { SubmitButton, BriefPicker } from "@/components/client";
 
 export const dynamic = "force-dynamic";
 
@@ -104,14 +104,7 @@ export default async function NewVideo({ params, searchParams }: { params: Promi
               </select>
             </label>
 
-            <div className="drop">
-              <label className="field">3. Sube el brief (.docx, .txt o .md)
-                <input type="file" name="brief" accept=".docx,.txt,.md" />
-              </label>
-              <label className="field">…o pégalo aquí
-                <textarea name="briefText" rows={5} placeholder="Pega el guion con su audio y visual" />
-              </label>
-            </div>
+            <BriefPicker />
 
             <label className="field">4. ¿Algo más que deba saber la IA?
               <textarea name="notes" rows={3} placeholder="Ej.: que grabe en el baño de su casa, luz de mañana" />
