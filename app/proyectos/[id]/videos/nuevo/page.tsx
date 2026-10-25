@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser, ownProject } from "@/lib/auth";
 import { createVideo } from "@/app/actions";
-import { SubmitButton, BriefPicker } from "@/components/client";
+import { SubmitButton, BriefPicker, RefVideoPicker } from "@/components/client";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +106,9 @@ export default async function NewVideo({ params, searchParams }: { params: Promi
 
             <BriefPicker />
 
-            <label className="field">4. ¿Algo más que deba saber la IA?
+            <RefVideoPicker />
+
+            <label className="field">5. ¿Algo más que deba saber la IA?
               <textarea name="notes" rows={3} placeholder="Ej.: que grabe en el baño de su casa, luz de mañana" />
             </label>
 

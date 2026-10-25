@@ -86,7 +86,7 @@ const understandSchema = {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
-        properties: { time: S, duration: S, kind: S, audio: S, visual: S, edit: S, character: B, product: B },
+        properties: { time: S, duration: S, kind: S, audio: S, visual: S, reference: S, edit: S, character: B, product: B },
         required: ["time", "duration", "kind", "audio", "visual", "edit", "character", "product"],
       },
     },
@@ -175,7 +175,7 @@ interface UnderstandOut extends Understanding {
   summary: string;
   durationSeconds?: number;
   personaSpec?: string;
-  scenes: { time: string; duration: string; kind: string; audio: string; visual: string; edit: string; character?: boolean; product?: boolean }[];
+  scenes: { time: string; duration: string; kind: string; audio: string; visual: string; reference?: string; edit: string; character?: boolean; product?: boolean }[];
 }
 
 async function understand(

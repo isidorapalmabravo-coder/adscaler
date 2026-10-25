@@ -377,3 +377,57 @@ export function BriefPicker() {
     </div>
   );
 }
+
+
+/** Video de referencia (opcional): Gemini lo mira para que cada toma se parezca al video original. Solo uno. */
+export function RefVideoPicker() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [warn, setWarn] = useState("");
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const f = files[0];
+    if (f.size > 150 * 1024 * 1024) {
+      e.target.value = "";
+      setFileName("");
+      setWarn("Ese video pesa más de 150 MB. Súbelo más corto o comprimido.");
+      return;
+    }
+    setWarn(files.length > 1 ? "Solo puedes subir un video de referencia. Me quedé con el primero." : "");
+    setFileName(f.name);
+  }
+
+  function removeFile() {
+    if (inputRef.current) inputRef.current.value = "";
+    setFileName("");
+    setWarn("");
+  }
+
+  return (
+    <div className="drop">
+      <label className="field">
+        4. Video de referencia (opcional, un solo video .mp4 o .mov)
+        <span className="muted small">Si lo subes, la IA lo mira y hace que cada toma se parezca al video original. Recomendado si tu brief copia un anuncio.</span>
+        <input
+          ref={inputRef}
+          type="file"
+          name="refVideo"
+          accept=".mp4,.mov,.webm,video/*"
+          onChange={onPick}
+          style={fileName ? { display: "none" } : undefined}
+        />
+      </label>
+      {fileName && (
+        <div className="row" style={{ alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600 }}>🎬 {fileName}</span>
+          <button type="button" className="btn outline small" onClick={removeFile}>
+            Quitar y elegir otro
+          </button>
+        </div>
+      )}
+      {warn && <p className="muted small">{warn}</p>}
+    </div>
+  );
+}

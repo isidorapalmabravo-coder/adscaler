@@ -1,5 +1,6 @@
 "use server";
 
+import path from "path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -162,6 +163,17 @@ export async function createVideo(projectId: string, form: FormData) {
   if (!failed && !briefText.trim()) failed = "Falta el brief: sube un archivo o pégalo en el cuadro.";
   if (failed) redirect(`/proyectos/${projectId}/videos/nuevo?error=${encodeURIComponent(failed)}`);
   const refVideos: string[] = [];
+  const refFile = filesFrom(form, "refVideo")[0];
+  if (refFile) {
+    const ext = path.extname(refFile.name).toLowerCase();
+    if (![".mp4", ".mov", ".webm"].includes(ext)) {
+      redirect(`/proyectos/${projectId}/videos/nuevo?error=${encodeURIComponent("El video de referencia debe ser .mp4, .mov o .webm.")}`);
+    }
+    if (refFile.size > 150 * 1024 * 1024) {
+      redirect(`/proyectos/${projectId}/videos/nuevo?error=${encodeURIComponent("El video de referencia pesa más de 150 MB. Súbelo comprimido o más corto.")}`);
+    }
+    refVideos.push(await saveUpload(refFile));
+  }
   const id = newId();
   const type = str(form, "type") === "broll" ? "broll" : "ugc";
   const modeRaw = str(form, "mode");
