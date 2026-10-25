@@ -20,8 +20,8 @@ import { filePath, mimeOf } from "./files";
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
 /** Google a veces responde 503 ("modelo con alta demanda") o 429. Reintenta con pausa y, si sigue saturado, prueba el otro modelo. */
+// Solo se baja de Pro a Flash-Lite (más barato). Nunca se sube a Pro por saturación: cuesta ~19 veces más.
 const FALLBACK: Record<string, string> = {
-  "gemini-3.1-flash-lite": "gemini-3.1-pro-preview",
   "gemini-3.1-pro-preview": "gemini-3.1-flash-lite",
 };
 function isBusy(e: unknown) {
@@ -30,7 +30,7 @@ function isBusy(e: unknown) {
 }
 type GenParams = Parameters<GoogleGenAI["models"]["generateContent"]>[0];
 async function generate(ai: GoogleGenAI, params: GenParams) {
-  const waits = [3000, 8000, 15000];
+  const waits = [3000, 8000, 15000, 25000];
   const models = [params.model, FALLBACK[params.model as string]].filter(Boolean) as string[];
   let lastErr: unknown;
   for (const model of models) {
