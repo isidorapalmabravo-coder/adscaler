@@ -34,12 +34,8 @@ export async function register(_prev: AuthState, form: FormData): Promise<AuthSt
   const email = normEmail(str(form, "email"));
   const name = str(form, "name");
   const password = String(form.get("password") ?? "");
-  const invite = str(form, "invite");
   if (!EMAIL.test(email)) return { error: "Escribe un correo válido." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
-  const total = read((db) => db.users.length);
-  const need = process.env.INVITE_CODE;
-  if (total > 0 && need && invite !== need) return { error: "El código de invitación no es correcto." };
   if (read((db) => db.users.some((x) => x.email === email))) return { error: "Ya existe una cuenta con ese correo. Inicia sesión." };
   const u = createUser(email, name, password);
   await startSession(u.id);
