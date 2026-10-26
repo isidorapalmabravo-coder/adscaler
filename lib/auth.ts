@@ -118,7 +118,7 @@ export function createUser(email: string, name: string, password: string): User 
       salt,
       role: first ? "admin" : "user",
       plan: first ? "Admin" : "Prueba",
-      imageLimit: first ? Number(process.env.MONTHLY_IMAGE_LIMIT || 270) : Number(process.env.FREE_IMAGE_LIMIT || 22),
+      imageLimit: first ? Number(process.env.MONTHLY_IMAGE_LIMIT || 270) : Number(process.env.FREE_IMAGE_LIMIT || 0),
       createdAt: new Date().toISOString(),
     };
     db.users.push(u);

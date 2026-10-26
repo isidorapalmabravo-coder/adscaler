@@ -15,7 +15,7 @@ export default async function Registro() {
       <div className="stack" style={{ gap: 6 }}>
         <h1 style={{ fontSize: 28 }}>{first ? "Crea la cuenta principal" : "Crear cuenta"}</h1>
         <span className="muted small">
-          {first ? "Esta primera cuenta es la administradora de Adscaler." : "Es gratis para empezar, con unas pocas imágenes de prueba."}
+          {first ? "Esta primera cuenta es la administradora de Adscaler." : "Crea tu cuenta y prueba Adscaler con un video de prueba."}
         </span>
       </div>
       <AuthForm action={register} mode="registro" />

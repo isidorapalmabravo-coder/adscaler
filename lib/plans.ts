@@ -74,8 +74,8 @@ export function priceWithCode(plan: Plan, code: DiscountCode | null): number {
 
 export const clp = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
-/** Imágenes gratis por mes de una cuenta sin plan pagado. */
-export const FREE_IMAGES = () => Number(process.env.FREE_IMAGE_LIMIT ?? 22);
+/** Imágenes gratis por mes de una cuenta sin plan pagado (0: no hay imágenes gratis; se prueba con el video de prueba). */
+export const FREE_IMAGES = () => Number(process.env.FREE_IMAGE_LIMIT ?? 0);
 
 /** Imágenes que da su plan este mes: si el plan pagado venció, vuelve al cupo gratis. */
 export function monthlyLimit(u: { role: string; imageLimit: number; planUntil?: string }) {
