@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { mutate, newId } from "@/lib/db";
-import { requireUser, ownVideo } from "@/lib/auth";
+import { requireUser, ownVideo, canUseEditor } from "@/lib/auth";
 import type { EditSlot } from "@/lib/types";
 
 const slot = (text: string): EditSlot => ({ id: newId().slice(0, 8), text: text.trim().slice(0, 600) });
@@ -9,6 +9,7 @@ const slot = (text: string): EditSlot => ({ id: newId().slice(0, 8), text: text.
 /** Crea un montaje desde un video de la app (cada toma trae su guion) o desde un guion pegado (una línea = una toma). */
 export async function createEdit(form: FormData) {
   const me = await requireUser();
+  if (!canUseEditor(me)) redirect("/editor");
   const videoId = String(form.get("videoId") || "");
   const script = String(form.get("script") || "");
   let title = String(form.get("title") || "").trim();

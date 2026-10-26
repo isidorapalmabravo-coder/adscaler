@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { getProject, getVideo, mutate, newId } from "@/lib/db";
-import { requireUser, ownProject, ownVideo } from "@/lib/auth";
+import { requireUser, ownProject, ownVideo, canCreateVideos } from "@/lib/auth";
 import { filesFrom, saveUpload } from "@/lib/files";
 import { briefToText } from "@/lib/brief";
 import { analyzeBrief, rewriteAnimation, suggestAvatars } from "@/lib/gemini";
@@ -148,7 +148,9 @@ function startAnalysis(videoId: string) {
 }
 
 export async function createVideo(projectId: string, form: FormData) {
-  ownProject(await requireUser(), projectId);
+  const me = await requireUser();
+  ownProject(me, projectId);
+  if (!canCreateVideos(me)) redirect("/planes");
   const briefFile = filesFrom(form, "brief")[0];
   const pasted = str(form, "briefText");
   let briefText = pasted;

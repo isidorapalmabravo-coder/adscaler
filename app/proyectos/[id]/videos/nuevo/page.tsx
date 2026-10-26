@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser, ownProject } from "@/lib/auth";
+import { requireUser, ownProject, canCreateVideos } from "@/lib/auth";
 import { createVideo } from "@/app/actions";
 import { SubmitButton, BriefPicker, RefVideoPicker } from "@/components/client";
 
@@ -15,6 +15,23 @@ export default async function NewVideo({ params, searchParams }: { params: Promi
     project = ownProject(me, id);
   } catch {
     notFound();
+  }
+
+  if (!canCreateVideos(me)) {
+    return (
+      <div>
+        <header className="topbar">
+          <Link href={`/proyectos/${id}`} style={{ textDecoration: "none", fontWeight: 500 }}>← {project.name}</Link>
+        </header>
+        <div className="wrap" style={{ padding: "40px 24px 80px", maxWidth: 640 }}>
+          <div className="card stack" style={{ gap: 12 }}>
+            <h1 style={{ fontSize: 26 }}>Para crear videos necesitas un plan o un pack</h1>
+            <p className="muted">Crear videos está disponible para quienes compran un video de prueba, un pack o un plan. Elige el tuyo y vuelve aquí.</p>
+            <div><Link href="/planes" className="btn">Ver planes y precios</Link></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

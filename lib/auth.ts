@@ -159,6 +159,18 @@ export function quota(u: User) {
   const left = Math.max(0, monthly - used) + (u.role === "admin" ? 0 : u.credits ?? 0);
   return { used, limit: used + left, left };
 }
+/** Crear videos: solo cuentas que compraron algo y aún tienen imágenes (o el administrador). */
+export function canCreateVideos(u: User) {
+  return u.role === "admin" || quota(u).left > 0;
+}
+/** Editor: solo quien ya tiene al menos un video creado en la app con sus tomas para Flow (o el administrador). */
+export function canUseEditor(u: User) {
+  if (u.role === "admin") return true;
+  return read((db) => {
+    const ids = new Set(db.projects.filter((p) => p.ownerId === u.id).map((p) => p.id));
+    return db.videos.some((v) => ids.has(v.projectId) && !!v.analysis?.shots?.length);
+  });
+}
 export function assertQuota(userId: string | undefined, units: number) {
   if (!userId) return;
   const u = read((db) => db.users.find((x) => x.id === userId));

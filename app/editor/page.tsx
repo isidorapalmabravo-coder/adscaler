@@ -4,7 +4,7 @@ import { AppShell } from "@/components/ui";
 import { purgeOldEdits, expiresAt, RETENTION_DAYS } from "@/lib/video-edit";
 import { SubmitButton } from "@/components/client";
 import { createEdit } from "./actions";
-import { requireUser } from "@/lib/auth";
+import { requireUser, canUseEditor } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,24 @@ export default async function Editor() {
     return { edits: db.edits.filter((e) => e.ownerId === me.id), videos: db.videos.filter((v) => ids.has(v.projectId)) };
   });
   const withScript = videos.filter((v) => v.analysis?.shots?.length);
+  if (!canUseEditor(me)) {
+    return (
+      <AppShell>
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="muted small">Después de Flow</span>
+          <h1>Editor de video</h1>
+        </div>
+        <div className="card stack" style={{ gap: 12, maxWidth: 640 }}>
+          <h2>El editor se activa cuando creas tu primer video</h2>
+          <p className="muted">Sirve para unir los clips que bajas de Google Flow. Crea un video en Adscaler, que te entrega los prompts para Flow, y después podrás usar el editor.</p>
+          <div className="row" style={{ gap: 10 }}>
+            <Link href="/" className="btn">Ir a mis productos</Link>
+            <Link href="/planes" className="btn outline">Ver planes</Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
   return (
     <AppShell>
       <div className="stack" style={{ gap: 6 }}>
