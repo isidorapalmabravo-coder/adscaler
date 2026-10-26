@@ -181,7 +181,14 @@ export async function createVideo(projectId: string, form: FormData) {
   const modeRaw = str(form, "mode");
   const mode: BrollMode | undefined =
     type === "broll"
-      ? (["persona", "cortes", "animado_personaje", "animado_cortes"].includes(modeRaw) ? (modeRaw as BrollMode) : "cortes")
+      ? (() => {
+          const m = (["persona", "cortes", "animado_personaje", "animado_cortes"].includes(modeRaw) ? modeRaw : "cortes") as BrollMode;
+          const main = str(form, "mainPerson") === "on";
+          // "Cortes variados" + persona principal que se repite: se crea y aprueba al inicio, y solo aparece en las tomas donde el brief la pone
+          if (main && m === "cortes") return "cortes_persona" as BrollMode;
+          if (main && m === "animado_cortes") return "animado_cortes_personaje" as BrollMode;
+          return m;
+        })()
       : undefined;
   mutate((db) => {
     db.videos.unshift({

@@ -96,6 +96,11 @@ export default async function NewVideo({ params, searchParams }: { params: Promi
                   <span className="muted small">Escenas animadas distintas, con personajes distintos. Cada imagen se crea por separado.</span>
                 </label>
               </div>
+              <label className="choice" style={{ marginTop: 12 }}>
+                <input type="checkbox" name="mainPerson" />
+                <strong>Hay una persona (o personaje) principal que se repite</strong>
+                <span className="muted small">Solo para los cortes variados. La eliges y apruebas al inicio, igual que en UGC, y se ve igual en todas las tomas donde aparece. Las otras personas pueden ser distintas.</span>
+              </label>
               <div className="anim-style stack" style={{ marginTop: 8 }}>
                 <label className="field">Estilo de animación
                   <select name="animStyle" defaultValue="Animación 3D estilo Pixar">

@@ -279,6 +279,21 @@ CLASE: ANIMADO CON UN PERSONAJE FIJO
 - Cada toma cambia el escenario, el plano y la acción. Pueden aparecer otros personajes de apoyo; descríbelos por completo cada vez.
 - ${styleLock}
 - ${characterPrompt} Dibújalo en el estilo elegido.`;
+    case "cortes_persona":
+      return `${BROLL_BASE}
+CLASE: B-ROLL CON CORTES VARIADOS Y UNA PERSONA PRINCIPAL QUE SE REPITE (realista)
+- Hay UNA persona principal (la persona fija del brief). Su imagen aprobada llega como referencia SOLO en las tomas con character = true: en esas NO describas su cara, pelo ni ropa; escribe "the person" y lo que hace, siempre con la misma ropa.
+- Las demás tomas (character = false) son escenas independientes con OTRAS personas, o sin personas (objetos, modelos, animaciones): descríbelas por completo (edad, rasgos, ropa, lugar, luz, encuadre, acción). Esas otras personas NUNCA se parecen a la principal: otra edad, otro pelo, otro aspecto. No pongas a la principal en una toma con character = false.
+- Estilo de imagen: "Vertical 9:16 candid photo shot on a phone, photorealistic," con lugares reales y algo desordenados de casas latinoamericanas, luz real, piel real ("natural skin texture, visible pores, no retouching"), personas comunes que NUNCA miran a cámara ni hablan, encuadre un poco imperfecto y algo de grano de celular.
+- ${characterPrompt}`;
+    case "animado_cortes_personaje":
+      return `${BROLL_BASE}
+CLASE: ANIMADO CON CORTES VARIADOS Y UN PERSONAJE PRINCIPAL QUE SE REPITE
+- ${style}
+- Hay UN personaje principal. Su imagen aprobada llega como referencia SOLO en las tomas con character = true: en esas NO describas su diseño; escribe "the character" y lo que hace, siempre con el mismo diseño.
+- Las demás tomas (character = false) son escenas independientes con otros personajes u objetos: descríbelos por completo cada vez, con un diseño claramente distinto al del principal. No pongas al principal en una toma con character = false.
+- ${styleLock}
+- ${characterPrompt} Dibújalo en el estilo elegido.`;
     case "animado_cortes":
       return `${BROLL_BASE}
 CLASE: ANIMADO CON CORTES VARIADOS (sin personaje fijo)

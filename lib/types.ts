@@ -1,22 +1,24 @@
 export type VideoType = "ugc" | "broll";
 
 // B-roll se divide en 4 clases (el "mode" solo existe cuando type = "broll")
-export type BrollMode = "persona" | "cortes" | "animado_personaje" | "animado_cortes";
+export type BrollMode = "persona" | "cortes" | "cortes_persona" | "animado_personaje" | "animado_cortes" | "animado_cortes_personaje";
 
 export const MODE_LABEL: Record<BrollMode, string> = {
   persona: "B-roll · una persona fija",
   cortes: "B-roll · cortes variados",
   animado_personaje: "Animado · un personaje fijo",
   animado_cortes: "Animado · cortes variados",
+  cortes_persona: "B-roll · cortes variados con una persona principal",
+  animado_cortes_personaje: "Animado · cortes variados con un personaje principal",
 };
 
 /** ¿El video tiene una persona o personaje fijo que hay que crear y aprobar? */
 export const hasCharacter = (type: VideoType, mode?: BrollMode) =>
-  type === "ugc" || mode === "persona" || mode === "animado_personaje";
+  type === "ugc" || mode === "persona" || mode === "animado_personaje" || mode === "cortes_persona" || mode === "animado_cortes_personaje";
 
 /** ¿Es animado (3D, clay, tela, pizarra...)? */
 export const isAnimated = (type: VideoType, mode?: BrollMode) =>
-  type === "broll" && (mode === "animado_personaje" || mode === "animado_cortes");
+  type === "broll" && (mode === "animado_personaje" || mode === "animado_cortes" || mode === "animado_cortes_personaje");
 
 export type VideoStatus =
   | "draft" // creado, falta analizar

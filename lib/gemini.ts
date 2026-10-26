@@ -191,6 +191,7 @@ async function understand(
   const text = `${projectContext(opts.project, opts.avatar)}
 
 TIPO DE VIDEO: ${opts.type === "ugc" ? "UGC (persona hablando a cámara)" : `B-roll con voz en off, clase: ${opts.mode ?? "cortes"}${isAnimated(opts.type, opts.mode) ? ` (animado${opts.animStyle ? `, estilo: ${opts.animStyle}` : ""})` : ""}`}
+${opts.mode === "cortes_persona" || opts.mode === "animado_cortes_personaje" ? "\nEn este video HAY UNA PERSONA O PERSONAJE PRINCIPAL que se repite en varias tomas (la persona fija del brief; describe en personaSpec solo a ella). Marca character = true SOLO en las tomas donde el VISUAL dice que ella aparece; en las demás tomas hay otras personas u objetos distintos (character = false)." : ""}
 NOTAS EXTRA DEL USUARIO: ${opts.notes || "(ninguna)"}
 ${imgParts.length ? `Se adjuntan ${imgParts.length} foto(s) real(es) del producto.` : "Sin fotos del producto."}
 ${videoParts.length ? `Se adjuntan ${videoParts.length} video(s) de referencia.` : "Sin videos de referencia."}
