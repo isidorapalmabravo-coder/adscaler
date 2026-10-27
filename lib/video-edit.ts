@@ -314,6 +314,14 @@ async function ensureVoices(id: string) {
   if (left.length) throw new Error(`No se pudo crear la voz de la toma ${left.join(", ")}. ${lastErr}`.slice(0, 400));
 }
 
+/** Resume el error de ffmpeg: busca la línea que dice qué falló (no el resumen de salida que imprime al final). */
+function ffmpegReason(err: string): string {
+  const lines = err.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bad = lines.filter((l) => /error|invalid|no such|unable|failed|cannot|could not|killed|not found|denied/i.test(l) && !/^(Stream|Metadata|encoder)/i.test(l));
+  const pick = (bad.length ? bad.slice(0, 3) : lines.slice(-3)).join(" ");
+  return (lines.length && !bad.length ? "Posible falta de memoria del servidor. " : "") + pick.slice(0, 300);
+}
+
 /** Une los clips en orden (vertical 1080x1920), recortados a lo que se dice, y pone los subtítulos. */
 export async function renderEdit(id: string) {
   const job0 = getEdit(id);
@@ -336,100 +344,83 @@ export async function renderEdit(id: string) {
     const voiceOn = kind === "broll" && job.voiceOn === true;
     const plans = slots.map((s: EditSlot) => planSlot(kind, smart, s, voiceOn));
     const total = plans.reduce((a, p) => a + p.dur, 0);
-    const args: string[] = ["-hide_banner", "-y"];
-    const filters: string[] = [];
+    const n = slots.length;
 
-    // Clips (cada uno recortado a lo que se usa)
-    slots.forEach((s, i) => {
+    // Cada toma se arma por separado (poca memoria) y al final se unen sin volver a codificar el video.
+    // Antes se armaba todo en un solo comando con todos los clips abiertos a la vez y el servidor se quedaba sin memoria.
+    const clipFiles: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const s = slots[i];
       const p = plans[i];
-      args.push("-threads", "2", "-ss", p.start.toFixed(2), "-t", Math.max(0.1, p.dur - p.hold).toFixed(2), "-i", filePath(s.clip!));
-    });
-    // Voces en off generadas
-    const voiceIdx = new Map<number, number>();
-    slots.forEach((s, i) => {
-      if (plans[i].voice && s.voice) {
-        voiceIdx.set(i, args.filter((a) => a === "-i").length);
-        args.push("-threads", "1", "-i", filePath(s.voice));
-      }
-    });
-    const inputCount = args.filter((a) => a === "-i").length;
-
-    slots.forEach((s, i) => {
-      const p = plans[i];
-      const hold = p.hold > 0 ? `,tpad=stop_mode=clone:stop_duration=${p.hold.toFixed(2)}` : "";
-      filters.push(`[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30${hold},format=yuv420p[v${i}]`);
-      const fade = p.dur > 0.4 ? `,afade=t=out:st=${(p.dur - 0.05).toFixed(2)}:d=0.05` : "";
-      const vi = voiceIdx.get(i);
-      if (vi !== undefined) filters.push(`[${vi}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,apad=whole_dur=${p.dur.toFixed(3)},atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS${fade}[a${i}]`);
-      else if (s.hasAudio && !voiceOn) filters.push(`[${i}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${fade}[a${i}]`);
-      else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`);
-    });
-    filters.push(`${slots.map((_, i) => `[v${i}][a${i}]`).join("")}concat=n=${slots.length}:v=1:a=1[vc][aout]`);
-
-    let vlabel = "vc";
-    if (job.subtitles) {
       patch(id, (j) => {
-        j.stage = "Dibujando los subtítulos";
-        j.progress = 5;
+        j.stage = `Armando la toma ${i + 1} de ${n}`;
+        j.progress = Math.max(j.progress ?? 0, 5 + Math.round((i / n) * 85));
       });
-      const subs: { png: string; from: number; to: number }[] = [];
-      let offset = 0;
-      for (let i = 0; i < slots.length; i++) {
-        const p = plans[i];
-        for (const c of timeChunks(slots[i].text, p.speechFrom, p.speechTo)) {
-          const png = path.join(tmp, `s${subs.length}.png`);
-          await subtitlePng(c.text, job.subFont ?? "montserrat", job.subStyle, png);
-          subs.push({ png, from: offset + c.from, to: offset + c.to });
-        }
-        offset += p.dur;
+      const a: string[] = ["-hide_banner", "-y", "-threads", "2", "-ss", p.start.toFixed(2), "-t", Math.max(0.1, p.dur - p.hold).toFixed(2), "-i", filePath(s.clip!)];
+      let voiceIn = -1;
+      let nIn = 1;
+      if (p.voice && s.voice) {
+        voiceIn = nIn++;
+        a.push("-threads", "1", "-i", filePath(s.voice));
       }
-      subs.forEach((s, k) => {
-        // Un solo hilo por imagen de subtítulo: con ~50 imágenes, el valor por defecto agota los hilos del servidor ("Resource temporarily unavailable")
-        args.push("-threads", "1", "-i", s.png);
-        const inIdx = inputCount + k;
-        const next = `o${k}`;
-        filters.push(`[${vlabel}][${inIdx}:v]overlay=0:1180:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'[${next}]`);
-        vlabel = next;
-      });
+      const filters: string[] = [];
+      const hold = p.hold > 0 ? `,tpad=stop_mode=clone:stop_duration=${p.hold.toFixed(2)}` : "";
+      filters.push(`[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30${hold},format=yuv420p[v0]`);
+      const fade = p.dur > 0.4 ? `,afade=t=out:st=${(p.dur - 0.05).toFixed(2)}:d=0.05` : "";
+      const pad = `,apad=whole_dur=${p.dur.toFixed(3)},atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS`;
+      if (voiceIn >= 0) filters.push(`[${voiceIn}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${pad}${fade}[a0]`);
+      else if (s.hasAudio && !voiceOn) filters.push(`[0:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${pad}${fade}[a0]`);
+      else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS[a0]`);
+
+      // Subtítulos de esta toma (tiempos desde el inicio de la toma)
+      let vlabel = "v0";
+      if (job.subtitles) {
+        const chunks = timeChunks(s.text, p.speechFrom, p.speechTo);
+        for (let k = 0; k < chunks.length; k++) {
+          const png = path.join(tmp, `s${i}_${k}.png`);
+          await subtitlePng(chunks[k].text, job.subFont ?? "montserrat", job.subStyle, png);
+          a.push("-threads", "1", "-i", png);
+          const idx = nIn++;
+          const next = `o${k}`;
+          filters.push(`[${vlabel}][${idx}:v]overlay=0:1180:enable='between(t,${chunks[k].from.toFixed(2)},${chunks[k].to.toFixed(2)})'[${next}]`);
+          vlabel = next;
+        }
+      }
+      const out = path.join(tmp, `c${i}.mp4`);
+      a.push(
+        "-filter_complex", filters.join(";"),
+        "-map", `[${vlabel}]`, "-map", "[a0]",
+        "-filter_threads", "2", "-filter_complex_threads", "2",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", "-r", "30",
+        "-threads", "3",
+        "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2",
+        "-t", p.dur.toFixed(3),
+        out
+      );
+      let r = await run(a);
+      // Si el servidor se queda sin hilos, se reintenta con 1 hilo por todo
+      if (r.code !== 0 && /Resource temporarily unavailable/i.test(r.err)) {
+        const slow = a.map((x, q) => (/^(-threads|-filter_threads|-filter_complex_threads)$/.test(a[q - 1] ?? "") ? "1" : x));
+        r = await run(slow);
+      }
+      if (r.code !== 0 || !fs.existsSync(out)) throw new Error(`No se pudo armar la toma ${i + 1}. ${ffmpegReason(r.err)}`);
+      clipFiles.push(out);
     }
 
     patch(id, (j) => {
-      j.stage = "Armando el video y la voz";
-      j.progress = Math.max(j.progress ?? 0, 10);
+      j.stage = "Uniendo las tomas";
+      j.progress = 92;
     });
+    const list = path.join(tmp, "list.txt");
+    fs.writeFileSync(list, clipFiles.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
     const outName = `${newId()}.mp4`;
-    args.push(
-      "-filter_complex", filters.join(";"),
-      "-map", `[${vlabel}]`, "-map", "[aout]",
-      "-filter_threads", "2", "-filter_complex_threads", "2",
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
-      "-threads", "4",
-      "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
-      "-progress", "pipe:1", "-nostats",
-      filePath(outName)
-    );
-
-    let last = 0;
-    let lastWrite = 0;
-    const onProgress = (t: string) => {
-      const m = [...t.matchAll(/out_time_(?:us|ms)=(\d+)/g)].pop();
-      if (m && total > 0) {
-        const pct = Math.min(99, 10 + Math.round((Number(m[1]) / 1e6 / total) * 89));
-        if (pct > last && Date.now() - lastWrite > 1500) {
-          last = pct;
-          lastWrite = Date.now();
-          patch(id, (j) => (j.progress = pct));
-        }
-      }
-    };
-    let { code, err } = await run(args, onProgress);
-    // Si el servidor se queda sin hilos ("Resource temporarily unavailable"), se reintenta una vez con 1 hilo por todo
-    if (code !== 0 && /Resource temporarily unavailable/i.test(err)) {
-      last = 0;
-      const slow = args.map((a, i) => (/^(-threads|-filter_threads|-filter_complex_threads)$/.test(args[i - 1] ?? "") ? "1" : a));
-      ({ code, err } = await run(slow, onProgress));
-    }
-    if (code !== 0) throw new Error("No se pudo crear el video. " + err.split("\n").filter(Boolean).slice(-4).join(" ").slice(0, 400));
+    const j = await run([
+      "-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", list,
+      "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2",
+      "-movflags", "+faststart",
+      filePath(outName),
+    ]);
+    if (j.code !== 0) throw new Error(`No se pudieron unir las tomas. ${ffmpegReason(j.err)}`);
 
     const old = getEdit(id)?.output;
     patch(id, (j) => {
