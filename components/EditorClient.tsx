@@ -473,7 +473,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                       <audio src={url(s.voice!)} controls preload="none" style={{ width: "100%", height: 34 }} />
                       <span className="muted">
                         Voz: {sec(s.voiceSeconds || 0)}
-                        {s.clipSeconds && s.voiceSeconds && s.voiceSeconds + 0.35 > s.clipSeconds + 0.05 ? ` · es más larga que el clip (se congela el último cuadro). Mejor divide la frase en dos tomas.` : ""}
+                        {s.clipSeconds && s.voiceSeconds && s.voiceSeconds + 0.2 > s.clipSeconds + 0.05 ? ` · es más larga que el clip (se congela el último cuadro). Mejor divide la frase en dos tomas.` : ""}
                       </span>
                     </>
                   ) : s.text.trim() ? (

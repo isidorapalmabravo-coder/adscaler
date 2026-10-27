@@ -43,14 +43,14 @@ export function planSlot(kind: EditKind, smart: boolean, s: EditSlot, voiceOn = 
 
   if (smart) {
     if (hasVoice) {
-      start = Math.max(0, s.speechStart! - 0.12);
-      const end = Math.min(clip, s.speechEnd! + 0.3);
+      start = Math.max(0, s.speechStart! - 0.08);
+      const end = Math.min(clip, s.speechEnd! + 0.15);
       dur = end - start;
       from = s.speechStart! - start;
       to = s.speechEnd! - start;
       mode = "audio";
     } else if (w > 0) {
-      dur = Math.min(clip, Math.max(1, est + 0.35));
+      dur = Math.min(clip, Math.max(1, est + 0.25));
       from = 0.1;
       to = Math.max(from + 0.4, dur - 0.2);
       mode = "guion";
@@ -61,10 +61,10 @@ export function planSlot(kind: EditKind, smart: boolean, s: EditSlot, voiceOn = 
   }
 
   // Voz en off generada: el largo sale de la voz real, no de una estimación
-  // Con voz en off, la toma dura lo que dura la voz (+0,35 s) y se corta apenas termina de hablar,
+  // Con voz en off, la toma dura lo que dura la voz (+0,2 s) y se corta apenas termina de hablar,
   // aunque antes hayas fijado un largo a mano.
   if (kind === "broll" && voiceOn && voiceReady(s)) {
-    const want = r2(s.voiceSeconds! + 0.35);
+    const want = r2(s.voiceSeconds! + 0.2);
     const used = Math.min(clip, want);
     return { start: 0, dur: want, speechFrom: 0.05, speechTo: Math.min(want, s.voiceSeconds! + 0.05), mode: "voz", cut: Math.max(0, r2(clip - used)), hold: Math.max(0, r2(want - clip)), voice: true };
   }

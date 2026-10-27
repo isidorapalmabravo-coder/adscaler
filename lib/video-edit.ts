@@ -106,25 +106,80 @@ export async function probe(file: string): Promise<{ seconds: number; hasAudio: 
 }
 
 // ---------- Detección de voz (recorte inteligente) ----------
-/** Dónde empieza y termina de hablarse en el clip, según el audio. null si no hay voz. */
+/** Decodifica el audio del clip a PCM mono de 16 kHz (así se mide el volumen sin depender de ffmpeg para decidir). */
+function decodePcm(file: string): Promise<Int16Array | null> {
+  return new Promise((resolve) => {
+    const p = spawn(ffmpegBin(), ["-hide_banner", "-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], { stdio: ["ignore", "pipe", "ignore"] });
+    const chunks: Buffer[] = [];
+    let size = 0;
+    p.stdout.on("data", (d: Buffer) => {
+      size += d.length;
+      if (size < 40_000_000) chunks.push(d);
+    });
+    p.on("error", () => resolve(null));
+    p.on("close", () => {
+      const buf = Buffer.concat(chunks);
+      resolve(buf.length > 3200 ? new Int16Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength - (buf.byteLength % 2))) : null);
+    });
+  });
+}
+
+/**
+ * Dónde empieza y termina de hablarse en el clip, según el volumen real del audio. null si no hay voz.
+ * El umbral se adapta a cada clip (ruido de fondo, música o murmullo de la habitación), así el corte cae
+ * justo cuando termina la última palabra y no queda un segundo de nada al final.
+ */
 export async function speechWindow(file: string, seconds: number): Promise<{ start: number; end: number } | null> {
-  const { err } = await run(["-hide_banner", "-i", file, "-vn", "-af", "silencedetect=noise=-32dB:d=0.2", "-f", "null", "-"]);
-  const starts = [...err.matchAll(/silence_start:\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Math.max(0, Number(m[1])));
-  const ends = [...err.matchAll(/silence_end:\s*(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
-  // intervalos de silencio; si el último no cierra, llega hasta el final
-  const gaps = starts.map((st, i) => ({ s: st, e: ends[i] ?? seconds }));
-  let start = 0;
-  let end = seconds;
-  if (gaps.length && gaps[0].s < 0.08) start = gaps[0].e;
-  const last = gaps[gaps.length - 1];
-  if (last && last.e >= seconds - 0.08 && last.s > start) end = last.s;
+  const pcm = await decodePcm(file);
+  if (!pcm) return null;
+  const FR = 320; // 20 ms
+  const n = Math.floor(pcm.length / FR);
+  if (n < 10) return null;
+  const db: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let k = i * FR; k < (i + 1) * FR; k++) sum += pcm[k] * pcm[k];
+    const rms = Math.sqrt(sum / FR) / 32768;
+    db.push(20 * Math.log10(rms + 1e-6));
+  }
+  const sorted = [...db].sort((x, y) => x - y);
+  const floor = sorted[Math.floor(n * 0.1)];
+  const peak = sorted[Math.floor(n * 0.95)];
+  if (peak - floor < 10) return null; // sin diferencia clara entre voz y fondo
+  const thr = floor + Math.max(8, (peak - floor) * 0.3);
+  const active = db.map((v) => v > thr);
+
+  // tramos con sonido; se unen las pausas cortas (< 0,35 s) y se descartan los chasquidos (< 0,1 s)
+  const segs: { s: number; e: number }[] = [];
+  let i = 0;
+  while (i < n) {
+    if (!active[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < n && active[j]) j++;
+    segs.push({ s: i, e: j });
+    i = j;
+  }
+  const merged: { s: number; e: number }[] = [];
+  for (const g of segs) {
+    const last = merged[merged.length - 1];
+    if (last && (g.s - last.e) * 0.02 < 0.35) last.e = g.e;
+    else merged.push({ ...g });
+  }
+  const voiced = merged.filter((g) => (g.e - g.s) * 0.02 >= 0.1);
+  if (!voiced.length) return null;
+  const start = voiced[0].s * 0.02;
+  const end = Math.min(seconds || n * 0.02, voiced[voiced.length - 1].e * 0.02);
   if (end - start < 0.4) return null;
   return { start: Math.round(start * 100) / 100, end: Math.round(end * 100) / 100 };
 }
 
 /** Completa la detección de voz en los clips que aún no se analizaron (por ejemplo, subidos antes). */
 export async function ensureSpeech(job: EditJob) {
-  const todo = job.slots.filter((s) => s.clip && s.hasAudio && !s.speechChecked);
+  // se vuelve a medir siempre: así los clips subidos antes también usan la detección más precisa
+  const todo = job.slots.filter((s) => s.clip && s.hasAudio);
   for (const s of todo) {
     let w: { start: number; end: number } | null = null;
     try {
