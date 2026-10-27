@@ -16,10 +16,42 @@ function dirSize(p: string): number {
   return t;
 }
 
+const FILE_RE = /[a-z0-9]{6,}\.(?:png|jpe?g|webp|svg|mp4|wav|mp3|mov|webm|docx|txt|md)/gi;
+const namesIn = (txt: string) => (txt.match(FILE_RE) ?? []).map((x) => x.toLowerCase());
+
+/** Todos los archivos que algo usa: la base de datos (db.json) y los datos de comparar (compare-*.json). */
+function usedNames(): Set<string> | null {
+  const used = new Set<string>();
+  try {
+    const raw = fs.readFileSync(path.join(DATA_DIR, "db.json"), "utf8");
+    if (raw.length < 100) return null; // base vacía o dañada: no se borra nada
+    namesIn(raw).forEach((n) => used.add(n));
+    for (const e of fs.readdirSync(DATA_DIR, { withFileTypes: true })) {
+      if (e.isFile() && /^compare-.*\.json$/.test(e.name)) namesIn(fs.readFileSync(path.join(DATA_DIR, e.name), "utf8")).forEach((n) => used.add(n));
+    }
+    return used;
+  } catch {
+    return null;
+  }
+}
+
+/** Al eliminar un proyecto: borra del disco sus archivos, si nada más los usa. */
+export function deleteUnusedFilesOf(removedJson: string) {
+  try {
+    const used = usedNames();
+    if (!used) return;
+    for (const n of new Set(namesIn(removedJson))) {
+      if (used.has(n)) continue;
+      try {
+        fs.unlinkSync(path.join(UPLOAD_DIR, n));
+      } catch {}
+    }
+  } catch {}
+}
+
 /**
- * Libera espacio del disco borrando SOLO las carpetas temporales abandonadas (tmp-*) que dejan los
- * renders del editor que fallaron. Los archivos de los usuarios no se tocan: solo se cuenta cuántos
- * parecen no usarse, para decidir con datos si vale la pena limpiarlos.
+ * Libera espacio del disco: borra las carpetas temporales abandonadas (tmp-*) y los archivos subidos o
+ * generados que nada usa (ni db.json ni los datos de comparar) y que tienen más de 24 horas.
  */
 export function cleanupDisk() {
   try {
@@ -39,26 +71,21 @@ export function cleanupDisk() {
         } catch {}
       }
     }
-
-    // Solo informa: cuánto ocupan los archivos que ninguna parte de db.json menciona
-    let unusedBytes = 0;
-    let unusedCount = 0;
-    try {
-      const raw = fs.readFileSync(path.join(DATA_DIR, "db.json"), "utf8");
-      if (raw.length > 100) {
-        const used = new Set((raw.match(/[a-z0-9]{6,}\.(?:png|jpe?g|webp|svg|mp4|wav|mp3|mov|webm|docx|txt|md)/gi) ?? []).map((s) => s.toLowerCase()));
-        for (const e of fs.readdirSync(UPLOAD_DIR, { withFileTypes: true })) {
-          if (e.isFile() && !used.has(e.name.toLowerCase())) {
-            unusedBytes += fs.statSync(path.join(UPLOAD_DIR, e.name)).size;
-            unusedCount++;
-          }
-        }
+    const used = usedNames();
+    if (used) {
+      for (const e of fs.readdirSync(UPLOAD_DIR, { withFileTypes: true })) {
+        if (!e.isFile() || used.has(e.name.toLowerCase())) continue;
+        const f = path.join(UPLOAD_DIR, e.name);
+        try {
+          const st = fs.statSync(f);
+          if (now - st.mtimeMs < 24 * 3600 * 1000) continue;
+          fs.unlinkSync(f);
+          freed += st.size;
+          removed++;
+        } catch {}
       }
-    } catch {}
-
-    console.log(
-      `[limpieza] carpetas tmp borradas: ${removed} (${MB(freed)}). Archivos sin uso aparente: ${unusedCount} (${MB(unusedBytes)}). Uso ahora: uploads ${MB(dirSize(UPLOAD_DIR))}, total ${MB(dirSize(DATA_DIR))}`
-    );
+    }
+    console.log(`[limpieza] borrados ${removed} (${MB(freed)}). Uso ahora: uploads ${MB(dirSize(UPLOAD_DIR))}, total ${MB(dirSize(DATA_DIR))}`);
   } catch (e) {
     console.log("[limpieza] error", e instanceof Error ? e.message : e);
   }

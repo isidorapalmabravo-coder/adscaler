@@ -4,7 +4,8 @@ import path from "path";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { getProject, getVideo, mutate, newId } from "@/lib/db";
+import { getProject, getVideo, mutate, newId, read } from "@/lib/db";
+import { deleteUnusedFilesOf } from "@/lib/cleanup";
 import { requireUser, ownProject, ownVideo, canCreateVideos } from "@/lib/auth";
 import { filesFrom, saveUpload } from "@/lib/files";
 import { briefToText } from "@/lib/brief";
@@ -249,10 +250,12 @@ export async function deleteVideo(videoId: string) {
 // Borra un producto entero con todos sus videos
 export async function deleteProject(projectId: string) {
   ownProject(await requireUser(), projectId);
+  const removedJson = JSON.stringify([getProject(projectId), ...read((db) => db.videos.filter((v) => v.projectId === projectId))]);
   mutate((db) => {
     db.projects = db.projects.filter((p) => p.id !== projectId);
     db.videos = db.videos.filter((v) => v.projectId !== projectId);
   });
+  deleteUnusedFilesOf(removedJson);
   revalidatePath("/");
   revalidatePath("/videos");
   redirect("/");
