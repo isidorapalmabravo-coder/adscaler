@@ -342,14 +342,14 @@ export async function renderEdit(id: string) {
     // Clips (cada uno recortado a lo que se usa)
     slots.forEach((s, i) => {
       const p = plans[i];
-      args.push("-ss", p.start.toFixed(2), "-t", Math.max(0.1, p.dur - p.hold).toFixed(2), "-i", filePath(s.clip!));
+      args.push("-threads", "2", "-ss", p.start.toFixed(2), "-t", Math.max(0.1, p.dur - p.hold).toFixed(2), "-i", filePath(s.clip!));
     });
     // Voces en off generadas
     const voiceIdx = new Map<number, number>();
     slots.forEach((s, i) => {
       if (plans[i].voice && s.voice) {
         voiceIdx.set(i, args.filter((a) => a === "-i").length);
-        args.push("-i", filePath(s.voice));
+        args.push("-threads", "1", "-i", filePath(s.voice));
       }
     });
     const inputCount = args.filter((a) => a === "-i").length;
@@ -384,7 +384,8 @@ export async function renderEdit(id: string) {
         offset += p.dur;
       }
       subs.forEach((s, k) => {
-        args.push("-i", s.png);
+        // Un solo hilo por imagen de subtítulo: con ~50 imágenes, el valor por defecto agota los hilos del servidor ("Resource temporarily unavailable")
+        args.push("-threads", "1", "-i", s.png);
         const inIdx = inputCount + k;
         const next = `o${k}`;
         filters.push(`[${vlabel}][${inIdx}:v]overlay=0:1180:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'[${next}]`);
@@ -400,7 +401,9 @@ export async function renderEdit(id: string) {
     args.push(
       "-filter_complex", filters.join(";"),
       "-map", `[${vlabel}]`, "-map", "[aout]",
+      "-filter_threads", "2", "-filter_complex_threads", "2",
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+      "-threads", "4",
       "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
       "-progress", "pipe:1", "-nostats",
       filePath(outName)
@@ -408,7 +411,7 @@ export async function renderEdit(id: string) {
 
     let last = 0;
     let lastWrite = 0;
-    const { code, err } = await run(args, (t) => {
+    const onProgress = (t: string) => {
       const m = [...t.matchAll(/out_time_(?:us|ms)=(\d+)/g)].pop();
       if (m && total > 0) {
         const pct = Math.min(99, 10 + Math.round((Number(m[1]) / 1e6 / total) * 89));
@@ -418,7 +421,14 @@ export async function renderEdit(id: string) {
           patch(id, (j) => (j.progress = pct));
         }
       }
-    });
+    };
+    let { code, err } = await run(args, onProgress);
+    // Si el servidor se queda sin hilos ("Resource temporarily unavailable"), se reintenta una vez con 1 hilo por todo
+    if (code !== 0 && /Resource temporarily unavailable/i.test(err)) {
+      last = 0;
+      const slow = args.map((a, i) => (/^(-threads|-filter_threads|-filter_complex_threads)$/.test(args[i - 1] ?? "") ? "1" : a));
+      ({ code, err } = await run(slow, onProgress));
+    }
     if (code !== 0) throw new Error("No se pudo crear el video. " + err.split("\n").filter(Boolean).slice(-4).join(" ").slice(0, 400));
 
     const old = getEdit(id)?.output;
