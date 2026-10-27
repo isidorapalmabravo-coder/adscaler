@@ -1,3 +1,4 @@
+import os from "os";
 import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
@@ -326,7 +327,7 @@ function ffmpegReason(err: string): string {
 export async function renderEdit(id: string) {
   const job0 = getEdit(id);
   if (!job0) return;
-  const tmp = path.join(UPLOAD_DIR, `tmp-${newId()}`);
+  const tmp = path.join(os.tmpdir(), `adscaler-${newId()}`);
   try {
     await ensureSpeech(job0);
     await ensureVoices(id);
