@@ -10,6 +10,13 @@ import { VOICES, DEFAULT_VOICE } from "@/lib/voice-list";
 const url = (name: string) => `/api/files/${name}`;
 const rid = () => Math.random().toString(36).slice(2, 10);
 const sec = (n: number) => `${(Math.round(n * 10) / 10).toString().replace(".", ",")} s`;
+/** Número de toma que dice el nombre del archivo: "toma3.mp4", "Toma 03 - hook.mov", "3.mp4", "clip_12.mp4". Devuelve 0 si no tiene número. */
+function tomaNumber(name: string): number {
+  const base = name.replace(/\.[a-z0-9]+$/i, "");
+  const m = base.match(/(?:toma|take|shot|escena|clip|t)[\s._-]*0*(\d{1,3})(?!\d)/i) ?? base.match(/(?:^|[^\d])0*(\d{1,3})(?!\d)(?!.*\d)/);
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 && n <= 60 ? n : 0;
+}
 const natural = (a: File, b: File) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
 
 const FONT_OPTS: { id: SubFont; label: string; upper?: boolean }[] = [
@@ -181,17 +188,34 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
       return;
     }
     setMsg("");
-    // 1) a qué toma va cada clip: primero las tomas vacías, en orden; si faltan, se crean
+    // 1) a qué toma va cada clip. Si el nombre trae número (toma3, 3.mp4, clip_03), va a ESA toma; si no, a la
+    //    primera toma vacía en orden de nombre. Si faltan tomas, se crean.
     const next = [...latest.current.slots];
     const targets: { slot: string; file: File }[] = [];
-    for (const f of files) {
-      const emptyIdx = next.findIndex((s) => !s.clip && !targets.some((t) => t.slot === s.id));
-      if (emptyIdx >= 0) targets.push({ slot: next[emptyIdx].id, file: f });
-      else {
-        const s: EditSlot = { id: rid(), text: "" };
-        next.push(s);
-        targets.push({ slot: s.id, file: f });
+    const taken = new Set<string>();
+    const ensure = (idx: number) => {
+      while (next.length <= idx) next.push({ id: rid(), text: "" });
+      return next[idx];
+    };
+    const numbered = files.filter((f) => tomaNumber(f.name) > 0).sort((a, b) => tomaNumber(a.name) - tomaNumber(b.name) || natural(a, b));
+    const plain = files.filter((f) => tomaNumber(f.name) === 0);
+    const placed = new Set<File>();
+    for (const f of numbered) {
+      const idx = tomaNumber(f.name) - 1;
+      const slot = ensure(idx);
+      if (taken.has(slot.id)) continue; // dos archivos con el mismo número: el segundo va después como "sin número"
+      taken.add(slot.id);
+      targets.push({ slot: slot.id, file: f });
+      placed.add(f);
+    }
+    for (const f of [...plain, ...numbered.filter((x) => !placed.has(x))]) {
+      let idx = next.findIndex((s2) => !s2.clip && !taken.has(s2.id));
+      if (idx < 0) {
+        next.push({ id: rid(), text: "" });
+        idx = next.length - 1;
       }
+      taken.add(next[idx].id);
+      targets.push({ slot: next[idx].id, file: f });
     }
     dirty.current = true;
     setSlots(next);
@@ -348,7 +372,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
           style={{ alignItems: "center", textAlign: "center", padding: 28, cursor: "pointer", background: over ? "#E4EAF5" : "#fff", borderColor: over ? "var(--accent)" : "#AEB9CF" }}
         >
           <strong style={{ fontSize: 17 }}>Arrastra aquí todos tus clips, o toca para elegirlos</strong>
-          <span className="muted small">Se acomodan en orden por el nombre del archivo (toma1, toma2…). Después puedes mover cada uno.</span>
+          <span className="muted small">Pon el número de la toma en el nombre del archivo (toma1.mp4, toma2.mp4… o 1.mp4, 2.mp4…) y cada clip va a su toma. Si el nombre no tiene número, se acomodan en orden por nombre. Después puedes mover cada uno.</span>
           <input ref={fileInput} type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
         </div>
         {msg && <p className="error" role="alert">{msg}</p>}
@@ -373,6 +397,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                     const why = p.mode === "audio" ? "según la voz del clip" : p.mode === "guion" ? "según el texto" : p.mode === "manual" ? "largo fijado por ti" : p.mode === "voz" ? "según la voz en off" : "";
                     return (
                       <div className="stack" style={{ gap: 6 }}>
+                        {s.clipName && <span className="muted small" style={{ overflowWrap: "anywhere" }} title={s.clipName}>📎 {s.clipName}</span>}
                         <div className="row between small" style={{ gap: 6 }}>
                           <span><strong>Se usa {sec(p.dur)}</strong> <span className="muted">de {sec(s.clipSeconds || 0)}</span></span>
                           <span className="row" style={{ gap: 4 }}>
