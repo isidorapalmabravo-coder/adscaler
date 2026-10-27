@@ -97,7 +97,15 @@ export async function generateImage(
 
   const b64 = res.data?.[0]?.b64_json;
   if (!b64) throw new Error("OpenAI no devolvió imagen");
-  return saveBuffer(Buffer.from(b64, "base64"), "png");
+  const raw = Buffer.from(b64, "base64");
+  // JPG de alta calidad: pesa unas 5 veces menos que el PNG y para anuncios no se nota la diferencia
+  try {
+    const sharp = (await import("sharp")).default;
+    const jpg = await sharp(raw).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+    return saveBuffer(jpg, "jpg");
+  } catch {
+    return saveBuffer(raw, "png");
+  }
 }
 
 // Ejecuta tareas con un máximo de N en paralelo

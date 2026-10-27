@@ -3,12 +3,12 @@ import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import { mutate, read, getEdit, newId } from "./db";
-import { UPLOAD_DIR, filePath } from "./files";
+import { UPLOAD_DIR, filePath, friendlyDiskError } from "./files";
 import type { EditJob, EditSlot, SubFont } from "./types";
 import { planSlot, voiceReady } from "./plan";
 
-/** Los clips y los videos del editor se borran solos a los 14 días. */
-export const RETENTION_DAYS = 14;
+/** Los videos del editor se borran solos a los 30 días (los clips, apenas el video queda listo). */
+export const RETENTION_DAYS = 30;
 
 let cachedBin: string | null = null;
 
@@ -69,7 +69,7 @@ export function deleteEditFiles(job: EditJob) {
   removeFile(job.output);
 }
 
-/** Borra los montajes con más de 14 días (clips y video final). */
+/** Borra los montajes con más de 30 días (video final y lo que quede). */
 export function purgeOldEdits() {
   const limit = Date.now() - RETENTION_DAYS * 86400000;
   const old = read((db) => db.edits.filter((e) => new Date(e.createdAt).getTime() < limit));
@@ -482,7 +482,18 @@ export async function renderEdit(id: string) {
     if (j.code !== 0) throw new Error(`No se pudieron unir las tomas. ${ffmpegReason(j.err)}`);
 
     const old = getEdit(id)?.output;
+    // Para ahorrar espacio, los clips subidos se borran apenas el video final está listo
+    const clipsToRemove = (getEdit(id)?.slots ?? []).map((s) => s.clip);
     patch(id, (j) => {
+      j.slots.forEach((s) => {
+        s.clip = undefined;
+        s.clipName = undefined;
+        s.clipSeconds = undefined;
+        s.hasAudio = undefined;
+        s.speechStart = undefined;
+        s.speechEnd = undefined;
+        s.speechChecked = undefined;
+      });
       j.status = "done";
       j.stage = undefined;
       j.progress = 100;
@@ -491,12 +502,74 @@ export async function renderEdit(id: string) {
       j.error = undefined;
     });
     removeFile(old);
+    clipsToRemove.forEach(removeFile);
   } catch (e) {
     patch(id, (j) => {
       j.status = "error";
-      j.error = e instanceof Error ? e.message : String(e);
+      j.error = friendlyDiskError(e instanceof Error ? e.message : String(e));
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+
+/* ---------------- Cola de armado de videos ---------------- */
+// Armar un video usa mucha memoria y procesador. Para que el servidor no se caiga cuando hay mucha gente,
+// se arman pocos a la vez (RENDER_CONCURRENCY, por defecto 2) y los demás esperan su turno.
+const MAX_RENDERS = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || 2);
+const running = new Set<string>();
+const waiting: string[] = [];
+
+function refreshQueue() {
+  waiting.forEach((jid, i) => {
+    patch(jid, (j) => {
+      j.queued = running.size + i;
+      j.progress = 0;
+      j.stage = "En cola";
+    });
+  });
+}
+
+function pump() {
+  while (running.size < MAX_RENDERS && waiting.length) {
+    const id = waiting.shift()!;
+    running.add(id);
+    patch(id, (j) => {
+      j.queued = 0;
+      j.stage = undefined;
+      j.renderStartedAt = new Date().toISOString();
+    });
+    refreshQueue();
+    renderEdit(id)
+      .catch(() => {})
+      .finally(() => {
+        running.delete(id);
+        pump();
+      });
+  }
+}
+
+/** Pone un video en la cola. Si hay lugar, empieza de inmediato. */
+export function enqueueRender(id: string) {
+  if (running.has(id) || waiting.includes(id)) return;
+  waiting.push(id);
+  refreshQueue();
+  pump();
+}
+
+/** Al arrancar el servidor: los videos que se estaban armando se perdieron; se avisa para volver a intentarlo. */
+export function resetStuckRenders() {
+  try {
+    mutate((db) => {
+      db.edits.forEach((e) => {
+        if (e.status === "rendering") {
+          e.status = "error";
+          e.queued = undefined;
+          e.stage = undefined;
+          e.error = "El servidor se reinició mientras se armaba tu video. Aprieta «Crear video» otra vez (tus clips siguen subidos).";
+        }
+      });
+    });
+  } catch {}
 }

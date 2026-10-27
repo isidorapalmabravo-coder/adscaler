@@ -656,7 +656,15 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
             <span className="muted small">Son unos 2 a 4 segundos por toma. Después se arma el video solo.</span>
           </div>
         )}
-        {rendering ? (
+        {rendering && (job.queued ?? 0) > 0 ? (
+          <div className="progress-box" style={{ margin: 0 }} role="status" aria-live="polite">
+            <strong>Hay mucha gente creando videos en este momento</strong>
+            <span className="small">
+              Por eso el tuyo se demora un poco más. {job.queued === 1 ? "Hay 1 video antes que el tuyo" : `Hay ${job.queued} videos antes que el tuyo`} y empieza solo cuando le toque.
+            </span>
+            <span className="muted small">No cierres esta página.</span>
+          </div>
+        ) : rendering ? (
           <div className="progress-box" style={{ margin: 0 }} role="status" aria-live="polite">
             <strong>Creando tu video… {job.progress ?? 0}%</strong>
             <div className="progress"><div className="progress-fill" style={{ width: `${Math.max(4, job.progress ?? 0)}%` }} /></div>
@@ -670,6 +678,11 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
             </button>
             {uploading && <span className="muted small">Espera a que terminen las subidas.</span>}
           </div>
+        )}
+        {!rendering && (
+          <p className="muted small" style={{ margin: 0 }}>
+            Si hay mucha gente creando videos al mismo tiempo, el tuyo espera su turno en una cola y se arma solo. Cuando el video queda listo, borramos los clips que subiste para ahorrar espacio, así que descarga tu MP4 (si quieres cambiar algo, tendrás que subir los clips otra vez). El video final se guarda 30 días.
+          </p>
         )}
         {job.status === "error" && <p className="error" role="alert">{job.error || "Algo falló al crear el video."}</p>}
 

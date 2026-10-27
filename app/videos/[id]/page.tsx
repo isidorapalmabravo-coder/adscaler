@@ -89,6 +89,12 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
 
         {video.error && <div className="error" role="alert">{video.error}</div>}
 
+        {video.purgedAt ? (
+          <p className="muted small">Pasaron más de 30 días, así que se borraron las imágenes de este video. Los guiones y prompts siguen aquí y puedes volver a generar las imágenes.</p>
+        ) : (
+          <p className="muted small">Las imágenes y videos se guardan 30 días y después se borran solos. Descarga lo que quieras conservar.</p>
+        )}
+
         {video.status === "draft" && analyzing && video.refVideos.length > 0 && (
           <p className="muted small">La IA está mirando tu video de referencia para que cada toma se parezca al original. Esto puede tardar uno o dos minutos más. No cierres ni recargues la página.</p>
         )}

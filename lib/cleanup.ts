@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { DATA_DIR } from "./db";
+import { DATA_DIR, mutate } from "./db";
 import { UPLOAD_DIR } from "./files";
 
 const MB = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
@@ -49,11 +49,35 @@ export function deleteUnusedFilesOf(removedJson: string) {
   } catch {}
 }
 
+/** A los 30 días se borran las imágenes y los videos de referencia de cada video; los prompts y guiones se conservan. */
+export function purgeOldVideos() {
+  try {
+    const limit = Date.now() - 30 * 86400000;
+    const files: string[] = [];
+    mutate((db) => {
+      for (const v of db.videos) {
+        if (v.purgedAt || new Date(v.createdAt).getTime() >= limit) continue;
+        v.analysis?.shots.forEach((s) => {
+          if (s.image) files.push(s.image);
+          s.image = undefined;
+        });
+        v.personaImages.filter((f) => f !== v.personaChosen).forEach((f) => files.push(f));
+        v.personaImages = v.personaImages.filter((f) => f === v.personaChosen);
+        v.refVideos.forEach((f) => files.push(f));
+        v.refVideos = [];
+        v.purgedAt = new Date().toISOString();
+      }
+    });
+    if (files.length) deleteUnusedFilesOf(JSON.stringify(files));
+  } catch {}
+}
+
 /**
  * Libera espacio del disco: borra las carpetas temporales abandonadas (tmp-*) y los archivos subidos o
  * generados que nada usa (ni db.json ni los datos de comparar) y que tienen más de 24 horas.
  */
 export function cleanupDisk() {
+  purgeOldVideos();
   try {
     if (!fs.existsSync(UPLOAD_DIR)) return;
     const now = Date.now();

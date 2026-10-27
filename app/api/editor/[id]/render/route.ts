@@ -1,7 +1,7 @@
 import { guardEdit } from "@/lib/auth";
 import { after } from "next/server";
 import { mutate, getEdit } from "@/lib/db";
-import { renderEdit, ffmpegProblem } from "@/lib/video-edit";
+import { enqueueRender, ffmpegProblem } from "@/lib/video-edit";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!job.slots.some((s) => s.clip)) return Response.json({ error: "Sube al menos un clip." }, { status: 400 });
   const problem = await ffmpegProblem();
   if (problem) return Response.json({ error: problem }, { status: 500 });
-  if (job.status === "rendering" && job.renderStartedAt && Date.now() - new Date(job.renderStartedAt).getTime() < 10 * 60000) {
+  if (job.status === "rendering" && job.renderStartedAt && Date.now() - new Date(job.renderStartedAt).getTime() < 30 * 60000) {
     return Response.json(job);
   }
   const next = mutate((db) => {
@@ -22,8 +22,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     j.progress = 0;
     j.error = undefined;
     j.renderStartedAt = new Date().toISOString();
+    j.queued = undefined;
     return j;
   });
-  after(() => renderEdit(id));
+  after(() => enqueueRender(id));
   return Response.json(next);
 }

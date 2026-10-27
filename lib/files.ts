@@ -35,11 +35,22 @@ export function mimeOf(name: string) {
   return MIME[path.extname(name).toLowerCase()] ?? "application/octet-stream";
 }
 
+export const DISK_FULL_MSG =
+  "Estamos con mucha gente y el almacenamiento está al límite en este momento. Ya estamos liberando espacio: intenta de nuevo en unos minutos.";
+
+export function friendlyDiskError(msg: string) {
+  return /ENOSPC|no space left/i.test(msg) ? DISK_FULL_MSG : msg;
+}
+
 export function saveBuffer(buf: Buffer, ext: string) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   const clean = ext.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const name = `${newId()}.${clean}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+  try {
+    fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+  } catch (e) {
+    throw new Error(friendlyDiskError(e instanceof Error ? e.message : String(e)));
+  }
   return name;
 }
 

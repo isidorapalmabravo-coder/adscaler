@@ -96,6 +96,8 @@ export interface Video {
   error?: string;
   /** Momento en que empezó el análisis del brief (mientras corre en segundo plano). */
   analyzingSince?: string;
+  /** Cuándo se borraron las imágenes y videos de referencia por antigüedad (30 días). */
+  purgedAt?: string;
   createdAt: string;
 }
 
@@ -142,6 +144,7 @@ export interface EditJob {
   status: EditStatus;
   progress?: number; // 0 a 100 mientras se crea
   renderStartedAt?: string;
+  queued?: number; // cuántos videos van antes que este en la cola (0 = ya se está armando)
   stage?: string; // en qué paso va la creación del video
   output?: string;
   outputSeconds?: number;
