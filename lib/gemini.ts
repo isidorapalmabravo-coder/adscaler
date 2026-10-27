@@ -1,6 +1,6 @@
 import { silenceBroll, noCameraImage } from "./broll";
 import { fixDuration } from "./duration";
-import { withAnatomy, withAnatomyMotion, withProductShape, withVertical } from "./anatomy";
+import { withAnatomy, withPhysiology, withAnatomyMotion, withProductShape, withVertical } from "./anatomy";
 import fs from "fs";
 import { GoogleGenAI, Type, createPartFromUri, type Part } from "@google/genai";
 import type { Analysis, Avatar, BrollMode, Project, Shot, Understanding, VideoType } from "./types";
@@ -332,7 +332,7 @@ export async function analyzeBrief(opts: {
         duration: dur.duration,
         kind: fixed.kind,
         audio,
-        imagePrompt: (opts.type === "ugc" ? withAnatomy(s.imagePrompt ?? "") : noCameraImage(withAnatomy(s.imagePrompt ?? ""))),
+        imagePrompt: (opts.type === "ugc" ? withPhysiology(withAnatomy(s.imagePrompt ?? "")) : noCameraImage(withPhysiology(withAnatomy(s.imagePrompt ?? "")))),
         animationPrompt: withProductShape(withAnatomyMotion(dur.animation), u.scenes[i]?.product ?? (s as { showsProduct?: boolean }).showsProduct ?? true),
         edit: s.edit ?? u.scenes[i]?.edit ?? "",
         // Quién y qué se ve en la toma: manda lo que dice el VISUAL del brief (entendimiento), no lo que improvise la IA
