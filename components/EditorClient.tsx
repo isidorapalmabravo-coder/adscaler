@@ -112,7 +112,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
       await fetch(`/api/editor/${initial.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed, slots: slots.map((s) => ({ id: s.id, text: s.text, manualSeconds: s.manualSeconds ?? null })) }),
+        body: JSON.stringify({ title, subtitles, subStyle, subFont, kind, smartTrim, voiceOn, voiceName, voiceSpeed, slots: slots.map((s) => ({ id: s.id, text: s.text, manualSeconds: s.manualSeconds ?? null, overlayText: s.overlayText ?? "", overlayPos: s.overlayPos ?? "arriba" })) }),
       }).catch(() => {});
     });
     return saving.current;
@@ -288,6 +288,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
     change(setSlots)(slots.filter((_, k) => k !== i));
   };
   const setManual = (i: number, v: number | undefined) => change(setSlots)(slots.map((s, k) => (k === i ? { ...s, manualSeconds: v } : s)));
+  const setOverlay = (i: number, patch: { overlayText?: string; overlayPos?: "arriba" | "centro" | "abajo" }) => change(setSlots)(slots.map((s, k) => (k === i ? { ...s, ...patch } : s)));
   const setText = (i: number, text: string) => change(setSlots)(slots.map((s, k) => (k === i ? { ...s, text } : s)));
 
   // ---------- Crear el video ----------
@@ -490,6 +491,19 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                 <span className="small muted">Lo que se dice (para los subtítulos)</span>
                 <textarea value={s.text} onChange={(e) => setText(i, e.target.value)} rows={3} style={{ padding: 8, borderRadius: 4, border: "1px solid var(--line)", font: "inherit", fontSize: 14, resize: "vertical" }} />
               </label>
+
+              <label className="stack" style={{ gap: 4 }}>
+                <span className="small muted">Texto sobre el video (opcional: un título, una oferta, lo que quieras)</span>
+                <input type="text" maxLength={160} value={s.overlayText ?? ""} onChange={(e) => setOverlay(i, { overlayText: e.target.value })} placeholder="Ej.: -30% solo hoy" style={{ padding: 8, borderRadius: 4, border: "1px solid var(--line)", font: "inherit", fontSize: 14 }} />
+              </label>
+              {(s.overlayText ?? "").trim() && (
+                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <span className="small muted">Dónde:</span>
+                  {(["arriba", "centro", "abajo"] as const).map((pos) => (
+                    <button key={pos} type="button" className="btn ghost" aria-pressed={(s.overlayPos ?? "arriba") === pos} style={{ minHeight: 30, padding: "2px 10px", borderWidth: 2, borderColor: (s.overlayPos ?? "arriba") === pos ? "#6EA8FF" : "transparent", textTransform: "capitalize" }} onClick={() => setOverlay(i, { overlayPos: pos })}>{pos}</button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           <button type="button" className="add-card" onClick={addSlot} style={{ minHeight: 140 }}>
@@ -614,7 +628,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
               </div>
             </div>
             <div style={{ background: "#2b3140", borderRadius: 6, padding: "22px 12px", textAlign: "center" }} aria-label="Vista previa de los subtítulos">
-              <span style={{ fontFamily: `"sub-${subFont}", sans-serif`, fontSize: 30, color: subStyle === "amarillo" ? "#FFE14A" : subStyle === "cajablanca" ? "#000" : "#fff", ...(subStyle === "caja" || subStyle === "cajablanca" ? { background: subStyle === "cajablanca" ? "#fff" : "rgba(0,0,0,0.62)", padding: "6px 16px", borderRadius: 8 } : { WebkitTextStroke: "5px #000", paintOrder: "stroke fill" as const }), textTransform: FONT_OPTS.find((f) => f.id === subFont)?.upper ? "uppercase" : "none" }}>
+              <span style={{ fontFamily: `"sub-${subFont}", sans-serif`, fontSize: 23, color: subStyle === "amarillo" ? "#FFE14A" : subStyle === "cajablanca" ? "#000" : "#fff", ...(subStyle === "caja" || subStyle === "cajablanca" ? { background: subStyle === "cajablanca" ? "#fff" : "rgba(0,0,0,0.62)", padding: "6px 16px", borderRadius: 8 } : { WebkitTextStroke: "5px #000", paintOrder: "stroke fill" as const }), textTransform: FONT_OPTS.find((f) => f.id === subFont)?.upper ? "uppercase" : "none" }}>
                 Así se verán tus subtítulos
               </span>
             </div>

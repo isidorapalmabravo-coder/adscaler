@@ -1,6 +1,6 @@
 import { silenceBroll, noCameraImage } from "./broll";
 import { fixDuration } from "./duration";
-import { withAnatomy, withAnatomyMotion, withVertical } from "./anatomy";
+import { withAnatomy, withAnatomyMotion, withProductShape, withVertical } from "./anatomy";
 import fs from "fs";
 import { GoogleGenAI, Type, createPartFromUri, type Part } from "@google/genai";
 import type { Analysis, Avatar, BrollMode, Project, Shot, Understanding, VideoType } from "./types";
@@ -333,7 +333,7 @@ export async function analyzeBrief(opts: {
         kind: fixed.kind,
         audio,
         imagePrompt: (opts.type === "ugc" ? withAnatomy(s.imagePrompt ?? "") : noCameraImage(withAnatomy(s.imagePrompt ?? ""))),
-        animationPrompt: withAnatomyMotion(dur.animation),
+        animationPrompt: withProductShape(withAnatomyMotion(dur.animation), u.scenes[i]?.product ?? (s as { showsProduct?: boolean }).showsProduct ?? true),
         edit: s.edit ?? u.scenes[i]?.edit ?? "",
         // Quién y qué se ve en la toma: manda lo que dice el VISUAL del brief (entendimiento), no lo que improvise la IA
         showsCharacter: hasCharacter(opts.type, opts.mode)
@@ -402,7 +402,7 @@ export async function rewriteAnimation(opts: {
   animStyle?: string;
   personaPrompt: string;
   productLook: string;
-  shot: { kind: string; duration: string; audio: string; imagePrompt: string; animationPrompt: string };
+  shot: { kind: string; duration: string; audio: string; imagePrompt: string; animationPrompt: string; showsProduct?: boolean };
   change: string;
 }): Promise<string> {
   const { shot, type } = opts;
@@ -432,5 +432,5 @@ CAMBIO PEDIDO POR EL USUARIO: ${opts.change || "(ninguno: mejóralo y hazlo más
     out = `${out.trim()} Adjustment: ${opts.change}.`;
   }
   const spoken = ensureSpeech(type, shot.kind, shot.audio, out).animation;
-  return withVertical(fixDuration(type, shot.audio, shot.duration, spoken).animation);
+  return withProductShape(withVertical(fixDuration(type, shot.audio, shot.duration, spoken).animation), shot.showsProduct !== false);
 }

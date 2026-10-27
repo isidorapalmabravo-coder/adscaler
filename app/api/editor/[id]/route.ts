@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   { const denied = await guardEdit(id); if (denied) return denied; }
-  const body = (await req.json()) as { title?: string; slots?: { id: string; text: string; manualSeconds?: number | null }[]; subtitles?: boolean; subStyle?: string; subFont?: string; kind?: string; smartTrim?: boolean; voiceOn?: boolean; voiceName?: string; voiceSpeed?: number };
+  const body = (await req.json()) as { title?: string; slots?: { id: string; text: string; manualSeconds?: number | null; overlayText?: string; overlayPos?: string }[]; subtitles?: boolean; subStyle?: string; subFont?: string; kind?: string; smartTrim?: boolean; voiceOn?: boolean; voiceName?: string; voiceSpeed?: number };
   const removed: string[] = [];
   const job = mutate((db) => {
     const j = db.edits.find((e) => e.id === id);
@@ -40,7 +40,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const old = byId.get(id2);
         byId.delete(id2);
         const m = Number(s.manualSeconds);
-        return { ...(old ?? { id: id2 }), id: id2, text: String(s.text ?? "").slice(0, 600), manualSeconds: m > 0 ? m : undefined };
+        const ot = String(s.overlayText ?? "").slice(0, 160);
+        const op = s.overlayPos === "centro" || s.overlayPos === "abajo" ? s.overlayPos : "arriba";
+        return { ...(old ?? { id: id2 }), id: id2, text: String(s.text ?? "").slice(0, 600), manualSeconds: m > 0 ? m : undefined, overlayText: ot.trim() ? ot : undefined, overlayPos: op };
       });
       byId.forEach((s) => s.clip && removed.push(s.clip));
       j.slots = next;

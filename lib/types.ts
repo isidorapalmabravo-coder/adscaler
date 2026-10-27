@@ -116,6 +116,8 @@ export interface EditSlot {
   voiceName?: string; // con qué voz se generó
   voiceSpeed?: number; // velocidad aplicada a este audio (1 = normal)
   voiceText?: string; // texto con el que se generó (si el texto cambia, hay que regenerar)
+  overlayText?: string; // texto que la persona quiere poner sobre esta toma (título, oferta, etc.)
+  overlayPos?: "arriba" | "centro" | "abajo"; // dónde va ese texto (por defecto arriba)
 }
 
 export type EditKind = "ugc" | "broll";

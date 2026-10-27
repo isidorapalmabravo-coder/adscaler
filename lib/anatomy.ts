@@ -23,6 +23,16 @@ export function withVertical(prompt: string) {
   return p;
 }
 
+// Regla "el producto no cambia de forma": se agrega a todo prompt de animación donde sale el producto.
+export const PRODUCT_SHAPE =
+  " The product keeps its exact shape, size, proportions, color, texture and design from the first frame to the last: it never morphs, melts, stretches, inflates, deflates, changes into a different object or gets redesigned; it moves only as a rigid object (or flexes only as much as the real material would), and any logo or label stays unchanged.";
+
+export function withProductShape(prompt: string, showsProduct: boolean) {
+  const p = (prompt || "").trim();
+  if (!p || !showsProduct) return p;
+  return /never morphs/i.test(p) ? p : p + PRODUCT_SHAPE;
+}
+
 export function withAnatomyMotion(prompt: string) {
   const p = (prompt || "").trim();
   if (!p) return p;

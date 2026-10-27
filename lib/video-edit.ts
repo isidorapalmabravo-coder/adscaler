@@ -153,11 +153,11 @@ export interface FontCfg {
 }
 /** Las tipografías viajan dentro de la app (public/fonts): se ven igual en cualquier computador. */
 export const FONTS: Record<SubFont, FontCfg> = {
-  montserrat: { label: "Montserrat", file: "montserrat.woff", size: 72, upper: false },
-  poppins: { label: "Poppins", file: "poppins.woff", size: 74, upper: false },
-  bebas: { label: "Bebas Neue", file: "bebas.woff", size: 104, upper: true },
-  anton: { label: "Anton", file: "anton.woff", size: 90, upper: true },
-  lilita: { label: "Lilita One", file: "lilita.woff", size: 82, upper: false },
+  montserrat: { label: "Montserrat", file: "montserrat.woff", size: 56, upper: false },
+  poppins: { label: "Poppins", file: "poppins.woff", size: 58, upper: false },
+  bebas: { label: "Bebas Neue", file: "bebas.woff", size: 80, upper: true },
+  anton: { label: "Anton", file: "anton.woff", size: 70, upper: true },
+  lilita: { label: "Lilita One", file: "lilita.woff", size: 64, upper: false },
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,8 +219,8 @@ export async function subtitlePng(text: string, fontId: SubFont, color: "blanco"
   const t = cfg.upper ? text.toUpperCase() : text;
   let size = cfg.size;
   let w = font.getAdvanceWidth(t, size);
-  if (w > 940) {
-    size = (size * 940) / w;
+  if (w > 860) {
+    size = (size * 860) / w;
     w = font.getAdvanceWidth(t, size);
   }
   const H = 260;
@@ -241,6 +241,53 @@ export async function subtitlePng(text: string, fontId: SubFont, color: "blanco"
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="${H}"><path d="${d}" fill="#000" stroke="#000" stroke-width="${(size * 0.2).toFixed(1)}" stroke-linejoin="round"/><path d="${d}" fill="${fill}"/></svg>`;
   await sharp(Buffer.from(svg)).png().toFile(out);
+}
+
+/** Texto que pone la persona sobre la toma: varias líneas, centrado, con el mismo estilo y fuente de los subtítulos. */
+export async function overlayPng(text: string, fontId: SubFont, color: "blanco" | "amarillo" | "caja" | "cajablanca", out: string): Promise<number> {
+  const sharp = (await import("sharp")).default;
+  const cfg = FONTS[fontId] ?? FONTS.montserrat;
+  const font = await loadFont(fontId);
+  const t = (cfg.upper ? text.toUpperCase() : text).replace(/\s+/g, " ").trim();
+  const maxW = 900;
+  let size = Math.round(cfg.size * 0.9);
+  const wrap = (sz: number) => {
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of t.split(" ")) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (cur && font.getAdvanceWidth(next, sz) > maxW) {
+        lines.push(cur);
+        cur = w;
+      } else cur = next;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  let lines = wrap(size);
+  while (lines.length > 4 && size > 30) {
+    size -= 4;
+    lines = wrap(size);
+  }
+  const lh = size * 1.25;
+  const pad = size * 0.5;
+  const H = Math.ceil(lines.length * lh + pad * 2);
+  const fill = color === "amarillo" ? "#FFE14A" : color === "cajablanca" ? "#000000" : "#FFFFFF";
+  const boxed = color === "caja" || color === "cajablanca";
+  let shapes = "";
+  let boxW = 0;
+  const widths = lines.map((l) => font.getAdvanceWidth(l, size));
+  boxW = Math.max(...widths);
+  if (boxed) shapes += `<rect x="${((1080 - boxW) / 2 - pad).toFixed(1)}" y="0" width="${(boxW + pad * 2).toFixed(1)}" height="${H}" rx="${(size * 0.25).toFixed(1)}" fill="${color === "cajablanca" ? "#FFFFFF" : "#000"}" fill-opacity="${color === "cajablanca" ? "1" : "0.62"}"/>`;
+  lines.forEach((l, k) => {
+    const base = pad + k * lh + size * 0.9;
+    const d = pathData(font.getPath(l, (1080 - widths[k]) / 2, base, size).commands);
+    if (!boxed) shapes += `<path d="${d}" fill="#000" stroke="#000" stroke-width="${(size * 0.2).toFixed(1)}" stroke-linejoin="round"/>`;
+    shapes += `<path d="${d}" fill="${fill}"/>`;
+  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="${H}">${shapes}</svg>`;
+  await sharp(Buffer.from(svg)).png().toFile(out);
+  return H;
 }
 
 /** Cuándo se dice cada frase dentro de la voz: se reparte según el largo de cada frase. */
@@ -383,9 +430,20 @@ export async function renderEdit(id: string) {
           a.push("-threads", "1", "-i", png);
           const idx = nIn++;
           const next = `o${k}`;
-          filters.push(`[${vlabel}][${idx}:v]overlay=0:1180:enable='between(t,${chunks[k].from.toFixed(2)},${chunks[k].to.toFixed(2)})'[${next}]`);
+          filters.push(`[${vlabel}][${idx}:v]overlay=0:1230:enable='between(t,${chunks[k].from.toFixed(2)},${chunks[k].to.toFixed(2)})'[${next}]`);
           vlabel = next;
         }
+      }
+      // Texto que puso la persona (dura toda la toma)
+      const ot = (s.overlayText ?? "").trim();
+      if (ot) {
+        const png = path.join(tmp, `t${i}.png`);
+        const h = await overlayPng(ot, job.subFont ?? "montserrat", job.subStyle, png);
+        a.push("-threads", "1", "-i", png);
+        const idx = nIn++;
+        const y = s.overlayPos === "centro" ? Math.round((1920 - h) / 2) : s.overlayPos === "abajo" ? 1580 - h : 260;
+        filters.push(`[${vlabel}][${idx}:v]overlay=0:${y}[ot]`);
+        vlabel = "ot";
       }
       const out = path.join(tmp, `c${i}.mp4`);
       a.push(
