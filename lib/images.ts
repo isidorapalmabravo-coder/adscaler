@@ -59,6 +59,21 @@ async function prepare(ref: Ref): Promise<{ buf: Buffer; name: string; type: str
  * refs = personaje aprobado (si lo hay) + foto(s) real(es) del producto.
  * Con referencias usa "edit" para mantener la misma cara y el mismo producto.
  */
+// Máximo de imágenes que se piden a OpenAI al mismo tiempo entre TODOS los usuarios (evita pasar el límite por minuto).
+const IMAGE_CONCURRENCY = Math.max(1, Number(process.env.IMAGE_CONCURRENCY) || 8);
+let imgActive = 0;
+const imgWaiting: (() => void)[] = [];
+async function withImageSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (imgActive >= IMAGE_CONCURRENCY) await new Promise<void>((res) => imgWaiting.push(res));
+  imgActive++;
+  try {
+    return await fn();
+  } finally {
+    imgActive--;
+    imgWaiting.shift()?.();
+  }
+}
+
 export async function generateImage(
   prompt: string,
   refs: Ref[] = [],
@@ -67,11 +82,26 @@ export async function generateImage(
   const quality = opts.quality ?? DEFAULT_QUALITY;
   prompt = withRealism(withPhysiology(withAnatomy(prompt)));
   assertQuota(opts.userId, CREDITS[quality]);
-  logImage(CREDITS[quality], opts.userId);
   if (!hasOpenAI()) {
+    logImage(CREDITS[quality], opts.userId);
     return saveBuffer(Buffer.from(mockImageSvg(prompt)), "svg");
   }
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  try {
+    // Las imágenes solo se descuentan si salieron bien: si OpenAI falla o está saturado, no se pierde ningún crédito.
+    const file = await withImageSlot(() => requestImage(prompt, refs, quality));
+    logImage(CREDITS[quality], opts.userId);
+    return file;
+  } catch (e) {
+    const status = (e as { status?: number })?.status;
+    if (status === 429 || (status && status >= 500)) {
+      throw new Error("Hay mucha gente generando imágenes en este momento. Espera un minuto y vuelve a intentarlo (no se descontó ninguna imagen).");
+    }
+    throw e;
+  }
+}
+
+async function requestImage(prompt: string, refs: Ref[], quality: Quality): Promise<string> {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 5, timeout: 240000 });
   const usable = refs.filter((r) => USABLE_REF.has(path.extname(r.file).toLowerCase())).slice(0, 6);
 
   const res = usable.length

@@ -9,6 +9,8 @@ import { planSlot, voiceReady } from "./plan";
 
 /** Los videos del editor se borran solos a los 30 días (los clips, apenas el video queda listo). */
 export const RETENTION_DAYS = 30;
+/** Los clips subidos se guardan menos que el video final (pesan mucho). */
+export const CLIP_DAYS = 7;
 
 let cachedBin: string | null = null;
 
@@ -71,6 +73,28 @@ export function deleteEditFiles(job: EditJob) {
 
 /** Borra los montajes con más de 30 días (video final y lo que quede). */
 export function purgeOldEdits() {
+  // Clips con más de 7 días: se borran los clips pero el video final sigue disponible
+  const clipLimit = Date.now() - CLIP_DAYS * 86400000;
+  const stale = read((db) => db.edits.filter((e) => e.status === "done" && new Date(e.createdAt).getTime() < clipLimit && e.slots.some((s) => s.clip)));
+  if (stale.length) {
+    const files: (string | undefined)[] = [];
+    mutate((db) => {
+      for (const e of db.edits) {
+        if (!stale.some((x) => x.id === e.id)) continue;
+        e.slots.forEach((s) => {
+          files.push(s.clip);
+          s.clip = undefined;
+          s.clipName = undefined;
+          s.clipSeconds = undefined;
+          s.hasAudio = undefined;
+          s.speechStart = undefined;
+          s.speechEnd = undefined;
+          s.speechChecked = undefined;
+        });
+      }
+    });
+    files.forEach(removeFile);
+  }
   const limit = Date.now() - RETENTION_DAYS * 86400000;
   const old = read((db) => db.edits.filter((e) => new Date(e.createdAt).getTime() < limit));
   if (!old.length) return;
@@ -82,7 +106,9 @@ export function purgeOldEdits() {
 
 export function run(args: string[], onStderr?: (line: string) => void): Promise<{ code: number; err: string }> {
   return new Promise((resolve) => {
-    const p = spawn(ffmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
+    // Con prioridad baja ("nice"): armar videos no debe hacer lenta la web para los demás usuarios.
+    const nice = process.platform === "linux" && fs.existsSync("/usr/bin/nice");
+    const p = nice ? spawn("/usr/bin/nice", ["-n", "10", ffmpegBin(), ...args], { stdio: ["ignore", "pipe", "pipe"] }) : spawn(ffmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
     let head = "";
     let tail = "";
     p.stderr.on("data", (d) => {
@@ -537,18 +563,7 @@ export async function renderEdit(id: string) {
     if (j.code !== 0) throw new Error(`No se pudieron unir las tomas. ${ffmpegReason(j.err)}`);
 
     const old = getEdit(id)?.output;
-    // Para ahorrar espacio, los clips subidos se borran apenas el video final está listo
-    const clipsToRemove = (getEdit(id)?.slots ?? []).map((s) => s.clip);
     patch(id, (j) => {
-      j.slots.forEach((s) => {
-        s.clip = undefined;
-        s.clipName = undefined;
-        s.clipSeconds = undefined;
-        s.hasAudio = undefined;
-        s.speechStart = undefined;
-        s.speechEnd = undefined;
-        s.speechChecked = undefined;
-      });
       j.status = "done";
       j.stage = undefined;
       j.progress = 100;
@@ -557,7 +572,6 @@ export async function renderEdit(id: string) {
       j.error = undefined;
     });
     removeFile(old);
-    clipsToRemove.forEach(removeFile);
   } catch (e) {
     patch(id, (j) => {
       j.status = "error";

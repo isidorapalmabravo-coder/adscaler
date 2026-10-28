@@ -42,7 +42,7 @@ export default async function Editor() {
         <span className="muted small">Después de Flow</span>
         <h1>Editor de video</h1>
         <p className="muted" style={{ maxWidth: 640 }}>
-          Sube los clips que bajaste de Google Flow y la app los une en orden, en vertical 9:16, con subtítulos. El video final se guarda {RETENTION_DAYS} días y después se borra solo; los clips que subes se borran apenas el video queda listo, así que descarga tu MP4. Si hay mucha gente creando videos, el tuyo espera su turno en una cola.
+          Sube los clips que bajaste de Google Flow y la app los une en orden, en vertical 9:16, con subtítulos. Los clips que subes se guardan 7 días y el video final {RETENTION_DAYS} días; después se borran solos, así que descarga tu MP4. Si hay mucha gente creando videos, el tuyo espera su turno en una cola.
         </p>
       </div>
 

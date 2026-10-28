@@ -682,7 +682,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
         )}
         {!rendering && (
           <p className="muted small" style={{ margin: 0 }}>
-            Si hay mucha gente creando videos al mismo tiempo, el tuyo espera su turno en una cola y se arma solo. Cuando el video queda listo, borramos los clips que subiste para ahorrar espacio, así que descarga tu MP4 (si quieres cambiar algo, tendrás que subir los clips otra vez). El video final se guarda 30 días.
+            Si hay mucha gente creando videos al mismo tiempo, el tuyo espera su turno en una cola y se arma solo. Tus clips se guardan 7 días y el video final 30 días; después se borran solos, así que descarga tu MP4.
           </p>
         )}
         {job.status === "error" && <p className="error" role="alert">{job.error || "Algo falló al crear el video."}</p>}
