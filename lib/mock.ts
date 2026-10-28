@@ -19,7 +19,7 @@ export function mockAnalysis(project: Project, type: VideoType): Analysis {
     duration: "4 s",
     kind: type === "ugc" ? "UGC" : "B-roll",
     audio,
-    imagePrompt: `Vertical 9:16 UGC photo shot on a phone, photorealistic, ${img} Natural skin texture, no retouching, no filters, ordinary real home, imperfect framing.`,
+    imagePrompt: `Vertical 9:16 UGC photo shot on an iPhone, unretouched, raw phone-camera processing, ${img} Natural skin texture, no retouching, no filters, ordinary real home, imperfect framing.`,
     animationPrompt:
       "Handheld phone, slight natural shake. " +
       (type === "ugc" ? "She talks to the camera with natural lip sync, small natural gestures and a relaxed expression. " : "Slow natural movement of the hands and product. ") +
@@ -31,7 +31,7 @@ export function mockAnalysis(project: Project, type: VideoType): Analysis {
     durationSeconds: shots.length * 4,
     personaPrompt:
       type === "ugc"
-        ? "Vertical 9:16 UGC selfie photo shot on a phone, photorealistic, chest-up, facing the camera with a slight smile. Chilean woman, 38 years old, shoulder-length dark wavy hair, brown eyes, light freckles, plain black t-shirt. Natural skin texture, visible pores, no retouching. Plain light-grey wall behind her, no pictures, no plants, no objects, nothing in her hands, soft window light."
+        ? "Vertical 9:16 UGC selfie photo shot on an iPhone, unretouched, raw phone-camera processing, chest-up, facing the camera with a slight smile. Chilean woman, 38 years old, shoulder-length dark wavy hair, brown eyes, light freckles, plain black t-shirt. Natural skin texture, visible pores, no retouching. Plain light-grey wall behind her, no pictures, no plants, no objects, nothing in her hands, soft window light."
         : "",
     shots,
     understanding: {
