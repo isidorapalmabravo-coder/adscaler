@@ -29,6 +29,22 @@ function isBusy(e: unknown) {
   return /"code":\s*(503|429|500)|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(m);
 }
 type GenParams = Parameters<GoogleGenAI["models"]["generateContent"]>[0];
+
+// Máximo de consultas a Gemini al mismo tiempo entre TODOS los usuarios (suaviza los picos cuando mucha gente analiza a la vez).
+const GEMINI_CONCURRENCY = Math.max(1, Number(process.env.GEMINI_CONCURRENCY) || 10);
+let gemActive = 0;
+const gemWaiting: (() => void)[] = [];
+async function withGeminiSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (gemActive >= GEMINI_CONCURRENCY) await new Promise<void>((res) => gemWaiting.push(res));
+  gemActive++;
+  try {
+    return await fn();
+  } finally {
+    gemActive--;
+    gemWaiting.shift()?.();
+  }
+}
+
 async function generate(ai: GoogleGenAI, params: GenParams) {
   const waits = [3000, 8000, 15000, 25000];
   const models = [params.model, FALLBACK[params.model as string]].filter(Boolean) as string[];
@@ -36,7 +52,7 @@ async function generate(ai: GoogleGenAI, params: GenParams) {
   for (const model of models) {
     for (let i = 0; i <= waits.length; i++) {
       try {
-        return await ai.models.generateContent({ ...params, model });
+        return await withGeminiSlot(() => ai.models.generateContent({ ...params, model }));
       } catch (e) {
         lastErr = e;
         if (!isBusy(e)) throw e;
