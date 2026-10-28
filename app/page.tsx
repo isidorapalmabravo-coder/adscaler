@@ -57,18 +57,6 @@ export default async function Home() {
           Agregar producto
         </Link>
       </div>
-
-      <section className="card row" style={{ gap: 24, padding: 24, alignItems: "center" }}>
-        <div className="stack" style={{ flex: "1 1 320px", gap: 8 }}>
-          <h2 style={{ fontFamily: "var(--display)", fontSize: 24, fontWeight: 700 }}>¿Primera vez? Mira cómo se hace un video completo</h2>
-          <p className="muted">Del brief a Flow en 4 pasos: subes el brief, apruebas a la persona, apruebas la primera toma y copias los prompts de animación.</p>
-        </div>
-        <div className="tut">
-          <Link href="/tutoriales">Tutorial 1 · 4 min</Link>
-          <Link href="/tutoriales">Tutorial 2 · UGC</Link>
-          <Link href="/tutoriales">Tutorial 3 · B-roll</Link>
-        </div>
-      </section>
     </AppShell>
   );
 }
