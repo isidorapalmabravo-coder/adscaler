@@ -17,7 +17,6 @@ PASO 1 · Tu producto
 3. Tu oferta: precio, garantía, bonos, envío y urgencia real. (Lo que no tengas, escribe "no".)
 4. Una foto real del producto (adjúntala).
 5. País donde vendes. (Si no me dices, uso Chile.)
-6. Qué hace tu producto y cómo funciona: pega el texto de tu página o escríbelo en tus palabras (tecnología, ingredientes, cifras, resultados, quién lo recomienda). Si es parecido al del video de referencia, dímelo.
 
 PASO 2 · ¿Cómo quieres crear el anuncio? Elige una letra (o varias):
 A · Video de referencia: tienes un anuncio de otro país y quieres el mismo video, con tu producto. Pega aquí el texto completo del ANÁLISIS que te dio Gemini de cada video (uno por brief) y sube también el video (si puedes, agrega capturas de pantalla de las tomas más importantes). Si todavía no lo tienes, escribe solo "A".
