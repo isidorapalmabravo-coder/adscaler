@@ -546,6 +546,7 @@ export function EditorClient({ initial, expires }: { initial: EditJob; expires: 
                 <span className="muted small">La app lee el texto de cada toma con una voz natural. Como sabe cuánto dura cada frase, la imagen dura justo lo que se dice y la voz queda pegada a lo que se ve. El sonido original de los clips se silencia.</span>
               </span>
             </label>
+            {!voiceOn && <span className="muted small">En B-roll el sonido original de Flow siempre se silencia: sin voz en off, el video queda sin audio para que le pongas tu propia voz.</span>}
             {voiceOn && (
               <div className="stack" style={{ gap: 10 }}>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>

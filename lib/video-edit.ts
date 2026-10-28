@@ -374,7 +374,7 @@ function patch(id: string, fn: (j: EditJob) => void) {
  */
 async function ensureVoices(id: string) {
   const job = getEdit(id);
-  if (!job || job.kind !== "broll" || job.voiceOn !== true) return;
+  if (!job || job.kind !== "broll" || job.voiceOn === false) return;
   const { synthesize, clampSpeed } = await import("./voice");
   const voiceName = job.voiceName ?? "Kore";
   const speed = clampSpeed(job.voiceSpeed);
@@ -444,7 +444,7 @@ export async function renderEdit(id: string) {
       j.stage = "Preparando los clips";
       j.progress = 2;
     });
-    const voiceOn = kind === "broll" && job.voiceOn === true;
+    const voiceOn = kind === "broll" && job.voiceOn !== false; // B-roll: voz en off por defecto
     const plans = slots.map((s: EditSlot) => planSlot(kind, smart, s, voiceOn));
     const total = plans.reduce((a, p) => a + p.dur, 0);
     const n = slots.length;
@@ -472,7 +472,7 @@ export async function renderEdit(id: string) {
       const fade = p.dur > 0.4 ? `,afade=t=out:st=${(p.dur - 0.05).toFixed(2)}:d=0.05` : "";
       const pad = `,apad=whole_dur=${p.dur.toFixed(3)},atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS`;
       if (voiceIn >= 0) filters.push(`[${voiceIn}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${pad}${fade}[a0]`);
-      else if (s.hasAudio && !voiceOn) filters.push(`[0:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${pad}${fade}[a0]`);
+      else if (s.hasAudio && kind === "ugc") filters.push(`[0:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo${pad}${fade}[a0]`);
       else filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${p.dur.toFixed(3)},asetpts=PTS-STARTPTS[a0]`);
 
       // Subtítulos de esta toma (tiempos desde el inicio de la toma)
