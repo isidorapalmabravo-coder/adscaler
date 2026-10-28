@@ -64,7 +64,7 @@ export function withAnatomyMotion(prompt: string) {
 
 // Cola de realismo para toda imagen fotográfica (no para animación, cómic, plastilina, CGI, etc.).
 export const REALISM_TAIL =
-  " Candid unposed snapshot look: caught mid-action, slightly imperfect off-center framing, uneven natural light, visible skin pores and fine lines, natural facial asymmetry, flyaway hairs, wrinkled everyday clothes, lived-in cluttered background, mild phone-camera grain; an ordinary person, not a model, no retouching, no beauty filter, no glossy or plastic AI skin.";
+  " Candid unposed snapshot look: caught mid-action, slightly imperfect off-center framing, bright well-exposed natural daylight (never dark, dim or moody), face clearly lit, visible skin pores and fine lines, natural facial asymmetry, flyaway hairs, wrinkled everyday clothes, lived-in cluttered background, mild phone-camera grain; a distinctive real person with their own individual face, not a model, not an influencer, no retouching, no beauty filter, no glossy or plastic AI skin.";
 
 const NOT_PHOTO = /claymation|clay|stop-motion|felt|3d animated|animated feature|illustration|comic|cartoon|line art|hatching|3d cgi|cgi render|skeleton|whiteboard|infographic|chart|diagram/i;
 
