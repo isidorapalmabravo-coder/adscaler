@@ -3,10 +3,10 @@ import { AppShell } from "@/components/ui";
 // Los videos NO se guardan en el servidor (pesan mucho): se suben a YouTube como "no listado" y aquí solo se pega el enlace.
 // Para activar uno, pon en "link" la dirección del video de YouTube o Vimeo (ej.: "https://youtu.be/AbC123xyz").
 const TUTORIALES: { t: string; d: string; link?: string }[] = [
-  { t: "Tutorial 1 · Bienvenida", d: "Qué es la web, proyectos, el editor, dónde se guardan los videos, los planes y el método para el brief.", link: "" },
-  { t: "Tutorial 2 · UGC", d: "Cómo funciona un video con una persona hablando a cámara.", link: "" },
-  { t: "Tutorial 3 · B-roll", d: "Planos de producto con voz en off.", link: "" },
-  { t: "Tutorial 4 · Editor", d: "Une los clips de Flow, subtítulos y texto sobre el video.", link: "" },
+  { t: "Tutorial 1 · Bienvenida", d: "Qué es la web, proyectos, el editor, dónde se guardan los videos, los planes y el método para el brief.", link: "https://youtu.be/2GPLsfqjJ2w?si=e6nL6cbMIiT-TKNe" },
+  { t: "Tutorial 2 · UGC", d: "Cómo funciona un video con una persona hablando a cámara.", link: "https://youtu.be/oUoAQW6hX_A?si=02_p2t48kjgKn7ry" },
+  { t: "Tutorial 3 · B-roll", d: "Planos de producto con voz en off.", link: "https://youtu.be/PiAcl4REsRI?si=51bJWnuKX0OG9znk" },
+  { t: "Tutorial 4 · Editor", d: "Une los clips de Flow, subtítulos y texto sobre el video.", link: "https://youtu.be/1Ow8toKjz44?si=NKJcqPEzUML3-jgW" },
 ];
 
 function embedUrl(link?: string): string | null {
