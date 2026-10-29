@@ -82,6 +82,7 @@ export interface Video {
   projectId: string;
   title: string;
   type: VideoType;
+  hybrid?: boolean; // UGC híbrido: persona fija que habla + tomas ilustrativas con voz en off
   mode?: BrollMode;
   animStyle?: string; // estilo de animación, texto libre (solo videos animados)
   avatarId: string | null;

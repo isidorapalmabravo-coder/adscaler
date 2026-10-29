@@ -169,6 +169,25 @@ ANIMACIÓN UGC (OBLIGATORIO) · animationPrompt de cada toma
 - Ejemplo de referencia (úsalo como modelo de estilo y nivel de detalle): Vertical 9:16 authentic handheld UGC selfie video, 6 seconds. The 52-year-old Chilean man speaks directly to camera with Chilean Spanish accent, phonetic cadence, and lip articulation: "Si estás como yo estaba, pruébala con la garantía. Lo peor que te puede pasar es que te devuelvan el dinero". He takes a small breath, glances away for a moment and back, then pushes the round speckled OSCUREL bar forward into close-up while speaking in a relaxed, unrehearsed tone and nodding. Authentic Chilean speech rhythm and mouth shapes, rigid bar geometry, imperfect handheld micro-shake with a small reframe, real room ambience, 24fps.
 `;
 
+export const ANIMACION_VOZ_EN_OFF = `
+VOZ EN OFF EN EL PROMPT DE ANIMACIÓN (OBLIGATORIO en las tomas ilustrativas del video híbrido)
+- Aunque en la escena nadie hable, el animationPrompt SIEMPRE incluye la voz en off con la frase exacta del AUDIO, en español y entre comillas, sin cambiar, resumir ni traducir nada. Estructura (todo lo demás en inglés): "Vertical 9:16 portrait video, N seconds. [camera and movement]. An off-screen adult [female/male] voice-over narrator, with the same warm natural Chilean Spanish voice as the main person in the video, says: \"[AUDIO EXACTO]\". Nobody on screen speaks, all lips stay closed, nobody looks at the camera. Single continuous take, no cuts, no text, no subtitles, no music, 24fps."
+- Usa SIEMPRE la misma descripción de voz (mismo sexo, edad y tono que la persona principal) en todas las tomas con voz en off, para que suene como una sola voz. Si en la escena aparece una persona, su boca queda cerrada: solo habla la voz en off.
+- N = 4, 6, 8 o 10 segundos, la MÁS CORTA que alcance para decir el audio (hasta 11 palabras: 4; hasta 17: 6; hasta 24: 8; hasta 30: 10).
+`;
+
+export const REALISMO_HIBRIDO = `
+VIDEO HÍBRIDO: PERSONA FIJA HABLANDO + TOMAS ILUSTRATIVAS CON VOZ EN OFF (esta sección ANULA la "REGLA DE TIPO DE VIDEO" de UGC de arriba)
+- Hay UNA persona fija (la aprobada al inicio). El video mezcla dos tipos de toma, según lo que diga el brief (columna Tipo, o "(VOZ EN OFF)" en el audio):
+  1) TOMA UGC (kind "UGC", character = true): ella habla directo a cámara en selfie de celular. Su audio lo dice ella, y su animationPrompt sigue la sección "ANIMACIÓN UGC" (frase entre comillas, acento chileno, labios).
+  2) TOMA ILUSTRATIVA (kind = "B-roll" o el tipo del brief: producto, cortes, animación…): plano variado e ilustrativo que muestra lo que dice la frase (el problema, el producto en uso, el mecanismo, la prueba). Nadie habla a cámara: se escucha una VOZ EN OFF que dice el audio. character = true SOLO si el VISUAL dice que la persona fija aparece en la escena (haciendo algo, sin hablar); si no, character = false. Su imagePrompt NO es selfie: es "photo taken by a friend" o un plano de objeto o escena. Su animationPrompt sigue la sección "VOZ EN OFF EN EL PROMPT DE ANIMACIÓN".
+- Respeta el tipo que marca el brief en cada toma; si no lo marca, usa UGC para el hook, la oferta y el cierre, y toma ilustrativa para el problema, el mecanismo y la prueba. Quita la marca "(VOZ EN OFF)" del audio.
+- Las tomas ilustrativas son variadas: otro lugar, otro encuadre, otro sujeto; la persona fija se mantiene igual donde aparece.
+
+${ANIMACION_UGC}
+${ANIMACION_VOZ_EN_OFF}
+`;
+
 const REALISMO_UGC = `
 TOMAS UGC: SOLO LA PERSONA HABLANDO A CÁMARA (regla más importante)
 - En un video UGC TODAS las tomas son de la persona principal hablando directo a cámara, en selfie de celular. NUNCA B-roll, nunca manos solas, nunca producto solo, nunca otra persona como protagonista. Si la escena del entendimiento pide algo de eso, escríbela como la persona hablando a cámara mientras muestra el producto o hace el gesto.
@@ -323,10 +342,10 @@ CLASE: B-ROLL CON CORTES VARIADOS (realista, sin personaje fijo)
 }
 
 
-export function systemInstruction(type: VideoType, mode?: BrollMode, animStyle?: string) {
+export function systemInstruction(type: VideoType, mode?: BrollMode, animStyle?: string, hybrid?: boolean) {
   return [
     REGLAS_GENERALES,
-    type === "ugc" ? REALISMO_UGC : brollInstruction(mode, animStyle),
+    type === "ugc" ? (hybrid ? `${REALISMO_UGC}\n${REALISMO_HIBRIDO}` : REALISMO_UGC) : brollInstruction(mode, animStyle),
     "MÉTODO PROPIO (síguelo por sobre todo lo anterior cuando haya diferencias):",
     METODO_PROPIO,
     "Responde solo con el JSON pedido.",
@@ -401,7 +420,9 @@ Responde solo con el JSON pedido.
 `;
 
 // Instrucción para regenerar SOLO el prompt de animación de una toma
-export function animationInstruction(type: VideoType, mode?: BrollMode, animStyle?: string) {
+export function animationInstruction(type: VideoType, mode?: BrollMode, animStyle?: string, voiceOverShot?: boolean) {
+  if (voiceOverShot)
+    return `Eres director/a creativo/a de anuncios de video. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma ilustrativa con voz en off de un video híbrido, EN INGLÉS.\n\n${ANIMACION_VOZ_EN_OFF}\n\nMovimiento realista de celular (cámara en mano con leve temblor) y una sola acción simple. Devuelve únicamente el prompt, sin explicaciones.`;
   return type === "ugc"
     ? `Eres director/a creativo/a de anuncios UGC. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma.\n\n${ANIMACION_UGC}\n\nHazlo humano y desprolijo: respiración, mirada que se escapa y vuelve, pausas cortas, gesto imperfecto, celular que tiembla un poco; que suene a nota de voz a una amiga, no a locutora. Devuelve únicamente el prompt final, sin comillas alrededor, sin explicaciones y sin JSON. Si el usuario pide un cambio, aplícalo sin perder la frase hablada. Si en la toma se ve el producto, el prompt DEBE decir que conserva su forma, tamaño, proporciones, color y diseño exactos de principio a fin, sin deformarse ni convertirse en otro objeto.`
     : `Eres director/a creativo/a de anuncios de video. Reescribes SOLO el prompt de animación (para Google Flow / Veo) de UNA toma B-roll, EN INGLÉS, de exactamente 4, 6, 8 o 10 segundos (nunca 5, 7 ni 9): cámara, lo que se mueve en orden temporal, ritmo, y cierre "single continuous take, no cuts, no text, no subtitles, no music". Solo movimiento, sin cambiar de escena. Si en la toma se ve el producto, el prompt DEBE decir que conserva su forma, tamaño, proporciones, color y diseño exactos de principio a fin y que no se deforma ni se convierte en otro objeto. REGLA ABSOLUTA: nadie habla ni mueve los labios y nadie mira a la cámara; si hay personas o personajes escribe "nobody speaks, lips stay closed and still, nobody looks at the camera, eyes stay on the activity" y borra cualquier frase de diálogo o "talking/speaking/looking at camera".${
