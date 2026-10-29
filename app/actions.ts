@@ -118,6 +118,7 @@ async function runAnalysis(videoId: string) {
       project,
       avatar,
       type: video.type,
+      hybrid: video.hybrid,
       mode: video.mode,
       animStyle: video.animStyle,
       briefText: video.briefText,
@@ -178,7 +179,9 @@ export async function createVideo(projectId: string, form: FormData) {
     refVideos.push(await saveUpload(refFile));
   }
   const id = newId();
-  const type = str(form, "type") === "broll" ? "broll" : "ugc";
+  const typeRaw = str(form, "type");
+  const type = typeRaw === "broll" ? "broll" : "ugc";
+  const hybrid = typeRaw === "hibrido";
   const modeRaw = str(form, "mode");
   const mode: BrollMode | undefined =
     type === "broll"
@@ -197,6 +200,7 @@ export async function createVideo(projectId: string, form: FormData) {
       projectId,
       title: str(form, "title") || "Video sin título",
       type,
+      hybrid: hybrid || undefined,
       mode,
       animStyle: isAnimated(type, mode) ? str(form, "animStyleCustom") || str(form, "animStyle") || undefined : undefined,
       avatarId: str(form, "avatarId") || null,
@@ -423,6 +427,7 @@ export async function regenerateAnimation(videoId: string, n: number, form: Form
       project,
       avatar,
       type: video.type,
+      hybrid: video.hybrid,
       mode: video.mode,
       animStyle: video.animStyle,
       personaPrompt: video.analysis.personaPrompt,

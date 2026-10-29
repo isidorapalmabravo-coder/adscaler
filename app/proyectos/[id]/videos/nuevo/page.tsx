@@ -65,6 +65,11 @@ export default async function NewVideo({ params, searchParams }: { params: Promi
                   <span className="muted small">Una persona habla a cámara como grabado con celular. Primero se crea y aprueba a la persona.</span>
                 </label>
                 <label className="choice">
+                  <input type="radio" name="type" value="hibrido" />
+                  <strong>UGC · Híbrido</strong>
+                  <span className="muted small">Una persona fija habla a cámara y, entre medio, tomas ilustrativas variadas con voz en off. Se crea y aprueba la persona; los prompts de Flow ya traen la voz en off.</span>
+                </label>
+                <label className="choice">
                   <input type="radio" name="type" value="broll" />
                   <strong>B-roll</strong>
                   <span className="muted small">Voz en off sobre tomas: realista o animado. Nadie habla a cámara.</span>

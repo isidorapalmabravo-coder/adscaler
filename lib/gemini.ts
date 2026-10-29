@@ -196,7 +196,7 @@ interface UnderstandOut extends Understanding {
 
 async function understand(
   ai: GoogleGenAI,
-  opts: { project: Project; avatar: Avatar | null; type: VideoType; mode?: BrollMode; animStyle?: string; briefText: string; notes: string; refVideos: string[] },
+  opts: { project: Project; avatar: Avatar | null; type: VideoType; hybrid?: boolean; mode?: BrollMode; animStyle?: string; briefText: string; notes: string; refVideos: string[] },
   model: string,
   onUsage?: UsageFn
 ): Promise<UnderstandOut> {
@@ -206,7 +206,8 @@ async function understand(
   ]);
   const text = `${projectContext(opts.project, opts.avatar)}
 
-TIPO DE VIDEO: ${opts.type === "ugc" ? "UGC (persona hablando a cámara)" : `B-roll con voz en off, clase: ${opts.mode ?? "cortes"}${isAnimated(opts.type, opts.mode) ? ` (animado${opts.animStyle ? `, estilo: ${opts.animStyle}` : ""})` : ""}`}
+TIPO DE VIDEO: ${opts.type === "ugc" ? (opts.hybrid ? "UGC HÍBRIDO (una persona fija que habla a cámara en algunas tomas, y tomas ilustrativas con voz en off en las demás)" : "UGC (persona hablando a cámara)") : `B-roll con voz en off, clase: ${opts.mode ?? "cortes"}${isAnimated(opts.type, opts.mode) ? ` (animado${opts.animStyle ? `, estilo: ${opts.animStyle}` : ""})` : ""}`}
+${opts.hybrid ? "\nEn este video HÍBRIDO hay UNA persona fija (describe en personaSpec solo a ella). En cada toma: si el brief dice que la persona habla a cámara (Tipo UGC), kind = \"UGC\" y character = true. Si es una toma ilustrativa (Tipo B-roll, producto, animación, gráfico…, o el audio trae \"(VOZ EN OFF)\"), kind = el tipo del brief, nadie habla a cámara y se escucha una voz en off; character = true SOLO si el VISUAL dice que la persona fija aparece en esa toma. Quita la marca \"(VOZ EN OFF)\" del audio." : ""}
 ${opts.mode === "cortes_persona" || opts.mode === "animado_cortes_personaje" ? "\nEn este video HAY UNA PERSONA O PERSONAJE PRINCIPAL que se repite en varias tomas (la persona fija del brief; describe en personaSpec solo a ella). Marca character = true SOLO en las tomas donde el VISUAL dice que ella aparece; en las demás tomas hay otras personas u objetos distintos (character = false)." : ""}
 NOTAS EXTRA DEL USUARIO: ${opts.notes || "(ninguna)"}
 ${imgParts.length ? `Se adjuntan ${imgParts.length} foto(s) real(es) del producto.` : "Sin fotos del producto."}
@@ -252,6 +253,7 @@ async function writePrompts(
   briefText: string,
   mode: BrollMode | undefined,
   animStyle: string | undefined,
+  hybrid: boolean | undefined,
   model: string,
   onUsage?: UsageFn
 ) {
@@ -280,7 +282,7 @@ ${briefText.slice(0, 120000)}`
       model,
       contents: text + (attempt ? "\n\nIMPORTANTE: devuelve exactamente una toma por cada escena indicada." : ""),
       config: {
-        systemInstruction: systemInstruction(type, mode, animStyle),
+        systemInstruction: systemInstruction(type, mode, animStyle, hybrid),
         responseMimeType: "application/json",
         responseSchema: writeSchema,
       },
@@ -298,7 +300,24 @@ ${briefText.slice(0, 120000)}`
 const norm = (x: string) => x.replace(/[\s"“”«»'.,;:¡!¿?]+/g, " ").trim().toLowerCase();
 
 // Si la IA se olvidó de poner el audio dentro del prompt de animación, se agrega aquí.
-function ensureSpeech(type: VideoType, kind: string, audio: string, animation: string) {
+export const isVoiceOverShot = (kind: string, audio: string) =>
+  /^\s*\(?\s*voz en off/i.test(audio) || (!!kind.trim() && !/ugc/i.test(kind));
+export const stripVoiceOverMark = (audio: string) => audio.replace(/^\s*\(?\s*voz en off\s*\)?\s*[:\-–]?\s*/i, "").trim();
+
+// Toma ilustrativa de un video híbrido: nadie habla en escena y una voz en off dice la frase.
+function voiceOverAnimation(animation: string, line: string) {
+  let a = silenceBroll(animation);
+  const clean = line.trim().replace(/^["“]|["”]$/g, "");
+  if (clean && !norm(a).includes(norm(clean))) {
+    a = `${a.trim().replace(/\s*$/, "")} An off-screen adult voice-over narrator, with the same warm natural Chilean Spanish voice as the main person in the video, says: "${clean}". Nobody on screen speaks, all lips stay closed, nobody looks at the camera.`;
+  }
+  return a;
+}
+
+function ensureSpeech(type: VideoType, kind: string, audio: string, animation: string, hybrid?: boolean) {
+  if (type === "ugc" && hybrid && isVoiceOverShot(kind, audio)) {
+    return { kind: /ugc/i.test(kind) || !kind.trim() ? "B-roll" : kind, animation: voiceOverAnimation(animation, stripVoiceOverMark(audio)) };
+  }
   if (type !== "ugc") {
     return { kind, animation: silenceBroll(animation) };
   }
@@ -320,6 +339,7 @@ export async function analyzeBrief(opts: {
   project: Project;
   avatar: Avatar | null;
   type: VideoType;
+  hybrid?: boolean;
   mode?: BrollMode;
   animStyle?: string;
   briefText: string;
@@ -335,12 +355,14 @@ export async function analyzeBrief(opts: {
   const mU = opts.models?.understand ?? process.env.GEMINI_UNDERSTAND_MODEL ?? MODEL;
   const mW = opts.models?.write ?? MODEL;
   const u = await understand(ai, opts, mU, opts.onUsage);
-  const w = await writePrompts(ai, opts.type, opts.project, opts.avatar, u, opts.briefText, opts.mode, opts.animStyle, mW, opts.onUsage);
+  const w = await writePrompts(ai, opts.type, opts.project, opts.avatar, u, opts.briefText, opts.mode, opts.animStyle, opts.hybrid, mW, opts.onUsage);
 
   const shots: Shot[] = (w.shots ?? []).map((s: Record<string, unknown> & { audio?: string; kind?: string; animationPrompt?: string; duration?: string; time?: string; imagePrompt?: string; edit?: string }, i) => {
-      const audio = s.audio ?? u.scenes[i]?.audio ?? "";
+      const audioRaw = s.audio ?? u.scenes[i]?.audio ?? "";
       const rawKind = s.kind ?? u.scenes[i]?.kind ?? "";
-      const fixed = ensureSpeech(opts.type, opts.type === "broll" && /ugc/i.test(rawKind) ? "B-roll" : rawKind, audio, s.animationPrompt ?? "");
+      const voiceOver = !!opts.hybrid && opts.type === "ugc" && isVoiceOverShot(rawKind, audioRaw);
+      const audio = opts.hybrid ? stripVoiceOverMark(audioRaw) : audioRaw;
+      const fixed = ensureSpeech(opts.type, opts.type === "broll" && /ugc/i.test(rawKind) ? "B-roll" : rawKind, opts.hybrid ? audioRaw : audio, s.animationPrompt ?? "", opts.hybrid);
       const dur = fixDuration(opts.type, audio, s.duration ?? u.scenes[i]?.duration ?? "", fixed.animation);
       return {
         n: i + 1,
@@ -348,12 +370,14 @@ export async function analyzeBrief(opts: {
         duration: dur.duration,
         kind: fixed.kind,
         audio,
-        imagePrompt: (opts.type === "ugc" ? withPhysiology(withAnatomy(s.imagePrompt ?? "")) : noCameraImage(withPhysiology(withAnatomy(s.imagePrompt ?? "")))),
+        imagePrompt: (opts.type === "ugc" && !voiceOver ? withPhysiology(withAnatomy(s.imagePrompt ?? "")) : noCameraImage(withPhysiology(withAnatomy(s.imagePrompt ?? "")))),
         animationPrompt: withProductShape(withAnatomyMotion(dur.animation), u.scenes[i]?.product ?? (s as { showsProduct?: boolean }).showsProduct ?? true),
         edit: s.edit ?? u.scenes[i]?.edit ?? "",
         // Quién y qué se ve en la toma: manda lo que dice el VISUAL del brief (entendimiento), no lo que improvise la IA
         showsCharacter: hasCharacter(opts.type, opts.mode)
-          ? opts.type === "ugc" || (u.scenes[i]?.character ?? (s as { showsCharacter?: boolean }).showsCharacter ?? true)
+          ? voiceOver
+            ? (u.scenes[i]?.character ?? (s as { showsCharacter?: boolean }).showsCharacter ?? false)
+            : opts.type === "ugc" || (u.scenes[i]?.character ?? (s as { showsCharacter?: boolean }).showsCharacter ?? true)
           : false,
         showsProduct: u.scenes[i]?.product ?? (s as { showsProduct?: boolean }).showsProduct ?? true,
       };
@@ -414,6 +438,7 @@ export async function rewriteAnimation(opts: {
   project: Project;
   avatar: Avatar | null;
   type: VideoType;
+  hybrid?: boolean;
   mode?: BrollMode;
   animStyle?: string;
   personaPrompt: string;
@@ -422,6 +447,7 @@ export async function rewriteAnimation(opts: {
   change: string;
 }): Promise<string> {
   const { shot, type } = opts;
+  const vo = !!opts.hybrid && type === "ugc" && isVoiceOverShot(shot.kind, shot.audio);
   let out = shot.animationPrompt;
   if (hasGemini()) {
     const text = `${projectContext(opts.project, opts.avatar)}
@@ -439,7 +465,7 @@ CAMBIO PEDIDO POR EL USUARIO: ${opts.change || "(ninguno: mejóralo y hazlo más
     const res = await generate(client(), {
       model: MODEL,
       contents: text,
-      config: { systemInstruction: animationInstruction(type, opts.mode, opts.animStyle), maxOutputTokens: 4096 },
+      config: { systemInstruction: animationInstruction(type, opts.mode, opts.animStyle, vo), maxOutputTokens: 4096 },
     });
     const clean = (res.text ?? "").trim().replace(/^```\w*\s*/, "").replace(/\s*```$/, "").trim();
     if (clean) out = clean;
@@ -447,6 +473,6 @@ CAMBIO PEDIDO POR EL USUARIO: ${opts.change || "(ninguno: mejóralo y hazlo más
   } else if (opts.change) {
     out = `${out.trim()} Adjustment: ${opts.change}.`;
   }
-  const spoken = ensureSpeech(type, shot.kind, shot.audio, out).animation;
+  const spoken = ensureSpeech(type, shot.kind, shot.audio, out, opts.hybrid).animation;
   return withProductShape(withVertical(fixDuration(type, shot.audio, shot.duration, spoken).animation), shot.showsProduct !== false);
 }
